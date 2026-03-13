@@ -931,6 +931,7 @@ export class Session {
         await confirmationDetails.onConfirm(outcome);
 
         switch (outcome) {
+          case ToolConfirmationOutcome.Skip:
           case ToolConfirmationOutcome.Cancel:
             return errorResponse(
               new Error(`Tool "${fc.name}" was canceled by the user.`),

@@ -5,9 +5,10 @@
  */
 
 import { render } from '../../../test-utils/render.js';
-import { describe, it, expect, vi, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { CoreToolCallStatus } from '@google/gemini-cli-core';
 import { useKeypress } from '../../hooks/useKeypress.js';
+import { useMouseClick } from '../../hooks/useMouseClick.js';
 import { StepActionBar } from './StepActionBar.js';
 import type { TraceNode } from '../../state/useTraceTree.js';
 
@@ -15,7 +16,12 @@ vi.mock('../../hooks/useKeypress.js', () => ({
   useKeypress: vi.fn(),
 }));
 
+vi.mock('../../hooks/useMouseClick.js', () => ({
+  useMouseClick: vi.fn(),
+}));
+
 const mockedUseKeypress = useKeypress as Mock;
+const mockedUseMouseClick = useMouseClick as Mock;
 
 const pendingNode: TraceNode = {
   id: 'pending-node',
@@ -26,6 +32,10 @@ const pendingNode: TraceNode = {
 };
 
 describe('StepActionBar', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('handles Enter for execute', async () => {
     const onExecute = vi.fn();
     const { waitUntilReady, unmount } = render(
@@ -45,6 +55,33 @@ describe('StepActionBar', () => {
       name: string;
     }) => boolean | void;
     handler({ name: 'enter' });
+
+    expect(onExecute).toHaveBeenCalledTimes(1);
+
+    unmount();
+  });
+
+  it('handles mouse click for execute', async () => {
+    const onExecute = vi.fn();
+    const { waitUntilReady, unmount } = render(
+      <StepActionBar
+        pendingNode={pendingNode}
+        isActive={true}
+        onExecute={onExecute}
+        onSkip={vi.fn()}
+        onContinue={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    await waitUntilReady();
+
+    const clickHandler = mockedUseMouseClick.mock.calls[0][1] as (
+      event: unknown,
+      relativeX: number,
+      relativeY: number,
+    ) => void;
+    clickHandler({}, 0, 0);
 
     expect(onExecute).toHaveBeenCalledTimes(1);
 

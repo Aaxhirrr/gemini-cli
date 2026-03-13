@@ -1755,8 +1755,13 @@ export const useGeminiStream = (
       const allToolsCancelled = geminiTools.every(
         (tc) => tc.status === CoreToolCallStatus.Cancelled,
       );
+      const allToolsSkipped =
+        allToolsCancelled &&
+        geminiTools.every(
+          (tc) => tc.outcome === ToolConfirmationOutcome.Skip,
+        );
 
-      if (allToolsCancelled) {
+      if (allToolsCancelled && !allToolsSkipped) {
         // If the turn was cancelled via the imperative escape key flow,
         // the cancellation message is added there. We check the ref to avoid duplication.
         if (!turnCancelledRef.current) {

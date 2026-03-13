@@ -65,8 +65,9 @@ export async function startInteractiveUI(
     isAlternateBufferEnabled(config),
     config.getScreenReader(),
   );
-  const mouseEventsEnabled = useAlternateBuffer;
-  if (mouseEventsEnabled) {
+  const shouldEnableMouseReporting =
+    useAlternateBuffer || process.env['GEMINI_STEP_MODE'] === 'true';
+  if (shouldEnableMouseReporting) {
     enableMouseEvents();
     registerCleanup(() => {
       disableMouseEvents();
@@ -108,7 +109,10 @@ export async function startInteractiveUI(
             }
           >
             <MouseProvider
-              mouseEventsEnabled={mouseEventsEnabled}
+              // Keep the listener active in both alternate-buffer and standard
+              // terminals; AppContainer toggles terminal mouse reporting when
+              // step mode is enabled outside the alternate buffer.
+              mouseEventsEnabled={true}
               debugKeystrokeLogging={
                 settings.merged.general.debugKeystrokeLogging
               }

@@ -1245,6 +1245,117 @@ describe('useGeminiStream', () => {
     });
   });
 
+  it('should continue the turn when a cancelled tool was explicitly skipped in step mode', async () => {
+    const skippedResponseParts: Part[] = [
+      {
+        functionResponse: {
+          name: 'read_file',
+          id: 'skip-1',
+          response: {
+            error:
+              '[Operation Cancelled] Reason: User skipped execution in step mode.',
+          },
+        },
+      },
+    ];
+    const skippedToolCall: TrackedCancelledToolCall = {
+      request: {
+        callId: 'skip-1',
+        name: 'read_file',
+        args: {},
+        isClientInitiated: false,
+        prompt_id: 'prompt-id-skip',
+      },
+      tool: {
+        name: 'read_file',
+        displayName: 'ReadFile',
+        description: 'Read a file',
+        build: vi.fn(),
+      } as any,
+      invocation: {
+        getDescription: () => 'ReadFile: packages/cli/src/gemini.tsx',
+      } as unknown as AnyToolInvocation,
+      status: CoreToolCallStatus.Cancelled,
+      response: {
+        callId: 'skip-1',
+        responseParts: skippedResponseParts,
+        resultDisplay: undefined,
+        error: undefined,
+        errorType: undefined,
+      },
+      outcome: ToolConfirmationOutcome.Skip,
+      responseSubmittedToGemini: false,
+    };
+
+    const client = new MockedGeminiClientClass(mockConfig);
+
+    let capturedOnComplete:
+      | ((completedTools: TrackedToolCall[]) => Promise<void>)
+      | null = null;
+
+    mockUseToolScheduler.mockImplementation((onComplete) => {
+      capturedOnComplete = onComplete;
+      return [
+        [],
+        mockScheduleToolCalls,
+        mockMarkToolsAsSubmitted,
+        vi.fn(),
+        mockCancelAllToolCalls,
+        0,
+      ];
+    });
+
+    renderHookWithProviders(() =>
+      useGeminiStream(
+        client,
+        [],
+        mockAddItem,
+        mockConfig,
+        mockLoadedSettings,
+        mockOnDebugMessage,
+        mockHandleSlashCommand,
+        false,
+        () => 'vscode' as EditorType,
+        () => {},
+        () => Promise.resolve(),
+        false,
+        () => {},
+        () => {},
+        () => {},
+        80,
+        24,
+      ),
+    );
+
+    await act(async () => {
+      if (capturedOnComplete) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await capturedOnComplete([skippedToolCall]);
+      }
+    });
+
+    await waitFor(() => {
+      expect(mockMarkToolsAsSubmitted).toHaveBeenCalledWith(['skip-1']);
+      expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockSendMessageStream).toHaveBeenCalledWith(
+      skippedResponseParts,
+      expect.any(AbortSignal),
+      'prompt-id-skip',
+      undefined,
+      false,
+      skippedResponseParts,
+    );
+    expect(client.addHistory).not.toHaveBeenCalled();
+    expect(mockAddItem).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: MessageType.INFO,
+        text: 'Request cancelled.',
+      }),
+    );
+  });
+
   it('should not flicker streaming state to Idle between tool completion and submission', async () => {
     const toolCallResponseParts: PartListUnion = [
       { text: 'tool 1 final response' },

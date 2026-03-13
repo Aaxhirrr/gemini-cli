@@ -47,6 +47,19 @@ export interface ResolutionResult {
   lastDetails?: SerializableConfirmationDetails;
 }
 
+function buildForcedConfirmationDetails(
+  toolCall: ValidatingToolCall,
+): SerializableConfirmationDetails {
+  const toolName =
+    toolCall.tool.displayName || toolCall.tool.name || toolCall.request.name;
+
+  return {
+    type: 'info',
+    title: `Confirm: ${toolName}`,
+    prompt: toolCall.invocation.getDescription(),
+  };
+}
+
 /**
  * Waits for a confirmation response with the matching correlationId.
  *
@@ -116,6 +129,7 @@ export async function resolveConfirmation(
     getPreferredEditor: () => EditorType | undefined;
     schedulerId: string;
     onWaitingForConfirmation?: (waiting: boolean) => void;
+    forceConfirmation?: boolean;
   },
 ): Promise<ResolutionResult> {
   const { state, onWaitingForConfirmation } = deps;
@@ -134,7 +148,12 @@ export async function resolveConfirmation(
     }
     const currentInvocation = currentCall.invocation;
 
-    const details = await currentInvocation.shouldConfirmExecute(signal);
+    const rawDetails = await currentInvocation.shouldConfirmExecute(signal);
+    const details =
+      rawDetails === false && deps.forceConfirmation
+        ? buildForcedConfirmationDetails(toolCall)
+        : rawDetails;
+
     if (!details) {
       outcome = ToolConfirmationOutcome.ProceedOnce;
       break;
@@ -147,7 +166,9 @@ export async function resolveConfirmation(
     lastDetails = serializableDetails;
 
     const ideConfirmation =
-      'ideConfirmation' in details ? details.ideConfirmation : undefined;
+      'ideConfirmation' in details
+        ? (details.ideConfirmation as Promise<DiffUpdateResult> | undefined)
+        : undefined;
 
     state.updateStatus(callId, CoreToolCallStatus.AwaitingApproval, {
       confirmationDetails: serializableDetails,
@@ -193,7 +214,7 @@ export async function resolveConfirmation(
  */
 async function notifyHooks(
   deps: { config: Config; messageBus: MessageBus },
-  details: ToolCallConfirmationDetails,
+  details: ToolCallConfirmationDetails | SerializableConfirmationDetails,
 ): Promise<void> {
   if (deps.config.getHookSystem()) {
     await deps.config.getHookSystem()?.fireToolNotificationEvent({

@@ -926,6 +926,7 @@ export enum ToolConfirmationOutcome {
   ProceedAlwaysServer = 'proceed_always_server',
   ProceedAlwaysTool = 'proceed_always_tool',
   ModifyWithEditor = 'modify_with_editor',
+  Skip = 'skip',
   Cancel = 'cancel',
 }
 

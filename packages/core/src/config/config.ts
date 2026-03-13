@@ -2145,6 +2145,7 @@ export class Config implements McpContext, AgentLoopContext {
     }
   }
 
+
   /**
    * Logs the duration of the current approval mode.
    */

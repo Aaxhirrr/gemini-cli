@@ -588,7 +588,9 @@ export class AppRig {
       messageBus.publish({
         type: MessageBusType.TOOL_CONFIRMATION_RESPONSE,
         correlationId: pending.correlationId,
-        confirmed: outcome !== ToolConfirmationOutcome.Cancel,
+        confirmed:
+          outcome !== ToolConfirmationOutcome.Cancel &&
+          outcome !== ToolConfirmationOutcome.Skip,
         outcome,
       });
     });

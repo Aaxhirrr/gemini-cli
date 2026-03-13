@@ -574,7 +574,8 @@ export const useSlashCommandProcessor = (
                         resolve({
                           outcome: resolvedOutcome,
                           approvedCommands:
-                            resolvedOutcome === ToolConfirmationOutcome.Cancel
+                            resolvedOutcome === ToolConfirmationOutcome.Cancel ||
+                            resolvedOutcome === ToolConfirmationOutcome.Skip
                               ? []
                               : result.commandsToConfirm,
                         });
@@ -601,6 +602,7 @@ export const useSlashCommandProcessor = (
 
                   if (
                     outcome === ToolConfirmationOutcome.Cancel ||
+                    outcome === ToolConfirmationOutcome.Skip ||
                     !approvedCommands ||
                     approvedCommands.length === 0
                   ) {

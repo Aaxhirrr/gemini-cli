@@ -304,6 +304,8 @@ export const AppContainer = (props: AppContainerProps) => {
   const [defaultBannerText, setDefaultBannerText] = useState('');
   const [warningBannerText, setWarningBannerText] = useState('');
   const [bannerVisible, setBannerVisible] = useState(true);
+  const stepModeEnabled =
+    stepModeOverride ?? process.env['GEMINI_STEP_MODE'] === 'true';
 
   const bannerData = useMemo(
     () => ({
@@ -616,6 +618,22 @@ export const AppContainer = (props: AppContainerProps) => {
     isAlternateBuffer,
     config.getScreenReader(),
   );
+
+  useEffect(() => {
+    if (shouldUseAlternateScreen) {
+      return undefined;
+    }
+
+    if (stepModeEnabled) {
+      enableMouseEvents();
+      return () => {
+        disableMouseEvents();
+      };
+    }
+
+    disableMouseEvents();
+    return undefined;
+  }, [shouldUseAlternateScreen, stepModeEnabled]);
 
   const handleEditorClose = useCallback(() => {
     if (shouldUseAlternateScreen) {
@@ -2378,7 +2396,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
           ...pendingGeminiHistoryItems,
         ]),
       hintBuffer: '',
-      stepMode: stepModeOverride ?? process.env['GEMINI_STEP_MODE'] === 'true',
+      stepMode: stepModeEnabled,
     }),
     [
       isThemeDialogOpen,
@@ -2501,7 +2519,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       adminSettingsChanged,
       newAgents,
       showIsExpandableHint,
-      stepModeOverride,
+      stepModeEnabled,
     ],
   );
 
@@ -2603,6 +2621,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
         setAuthState(AuthState.Updating);
       },
       setStepMode: (enabled: boolean) => {
+        process.env['GEMINI_STEP_MODE'] = enabled ? 'true' : 'false';
         setStepModeOverride(enabled);
       },
     }),

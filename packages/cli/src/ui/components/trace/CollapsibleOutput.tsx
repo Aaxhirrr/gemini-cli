@@ -7,6 +7,8 @@
 import type React from 'react';
 import { Box, Text } from 'ink';
 import { theme } from '../../semantic-colors.js';
+import { useUIState } from '../../contexts/UIStateContext.js';
+import { ToolResultDisplay } from '../messages/ToolResultDisplay.js';
 
 /** Maximum characters to show in collapsed preview mode */
 const COLLAPSED_MAX_CHARS = 80;
@@ -18,6 +20,10 @@ interface CollapsibleOutputProps {
   content: unknown;
   /** Whether the parent row is selected/focused - controls expansion */
   isExpanded: boolean;
+  /** Whether string output should use markdown rendering */
+  renderOutputAsMarkdown?: boolean;
+  /** Left indent for nested detail rows */
+  indent?: number;
   /** Available terminal width for wrapping */
   maxWidth?: number;
 }
@@ -153,8 +159,13 @@ function capLines(
 export const CollapsibleOutput: React.FC<CollapsibleOutputProps> = ({
   content,
   isExpanded,
+  renderOutputAsMarkdown,
+  indent = 2,
+  maxWidth,
 }) => {
+  const { mainAreaWidth } = useUIState();
   const serialized = serializeContent(content);
+  const terminalWidth = Math.max(20, maxWidth ?? mainAreaWidth - indent);
 
   if (!serialized) return null;
 
@@ -165,7 +176,7 @@ export const CollapsibleOutput: React.FC<CollapsibleOutputProps> = ({
       COLLAPSED_MAX_CHARS,
     );
     return (
-      <Box marginLeft={2} marginTop={0}>
+      <Box paddingLeft={indent} marginTop={0}>
         <Text color={theme.text.secondary} dimColor>
           {'-> '}
           {truncated}
@@ -185,13 +196,22 @@ export const CollapsibleOutput: React.FC<CollapsibleOutputProps> = ({
   return (
     <Box
       flexDirection="column"
-      marginLeft={2}
+      paddingLeft={indent}
       marginTop={0}
       borderStyle="single"
       borderColor={theme.border.default}
       paddingX={1}
     >
-      <Text color={theme.text.secondary}>{capped}</Text>
+      {typeof content === 'string' || (typeof content === 'object' && content !== null) ? (
+        <ToolResultDisplay
+          resultDisplay={content}
+          terminalWidth={terminalWidth}
+          renderOutputAsMarkdown={renderOutputAsMarkdown}
+          maxLines={EXPANDED_MAX_LINES}
+        />
+      ) : (
+        <Text color={theme.text.secondary}>{capped}</Text>
+      )}
       {wasCapped && (
         <Text color={theme.ui.active} dimColor>
           (output truncated)

@@ -3808,7 +3808,6 @@ describe('AppContainer State Management', () => {
         const result = renderAppContainer();
         unmount = result.unmount;
       });
-
       await waitFor(() => expect(capturedUIState).toBeTruthy());
 
       const initialStepMode = capturedUIState.stepMode;

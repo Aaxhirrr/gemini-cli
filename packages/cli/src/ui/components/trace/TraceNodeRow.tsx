@@ -11,7 +11,8 @@ import { theme } from '../../semantic-colors.js';
 import { CoreToolCallStatus } from '@google/gemini-cli-core';
 import type { TraceNode } from '../../state/useTraceTree.js';
 import { ToolStatusIndicator } from '../messages/ToolShared.js';
-import { CollapsibleOutput } from './CollapsibleOutput.js';
+import { TraceNodeDetails } from './TraceNodeDetails.js';
+import { hasTraceDetailSections } from './traceDetails.js';
 import type { TraceVerbosityMode } from './traceVerbosity.js';
 
 const MAX_NAME_CHARS = 72;
@@ -20,10 +21,14 @@ const MAX_DESCRIPTION_CHARS = 140;
 interface TraceNodeRowProps {
   node: TraceNode;
   depth: number;
+  isLast: boolean;
+  ancestorHasMoreSiblings: boolean[];
   isSelected: boolean;
   isExpanded: boolean;
-  isOutputExpanded: boolean;
+  isDetailsExpanded: boolean;
   verbosity: TraceVerbosityMode;
+  toggleDetailsHint: string;
+  showDetailsInline: boolean;
 }
 
 function truncateInline(text: string, maxChars: number): string {
@@ -47,19 +52,34 @@ function getNodeTypeLabel(node: TraceNode): string {
   }
 }
 
-function buildTreePrefix(depth: number, hasChildren: boolean, isExpanded: boolean): string {
-  const guides = depth > 0 ? `${'| '.repeat(Math.max(0, depth - 1))}| ` : '';
-  const branchMarker = hasChildren ? (isExpanded ? 'v ' : '> ') : '- ';
+function buildTreePrefix(
+  depth: number,
+  isLast: boolean,
+  ancestorHasMoreSiblings: boolean[],
+): string {
+  if (depth === 0) {
+    return '';
+  }
+
+  const guides = ancestorHasMoreSiblings
+    .slice(0, -1)
+    .map((hasMoreSiblings) => (hasMoreSiblings ? '│  ' : '   '))
+    .join('');
+  const branchMarker = isLast ? '└─ ' : '├─ ';
   return `${guides}${branchMarker}`;
 }
 
 const TraceNodeRowComponent: FC<TraceNodeRowProps> = ({
   node,
   depth,
+  isLast,
+  ancestorHasMoreSiblings,
   isSelected,
   isExpanded,
-  isOutputExpanded,
+  isDetailsExpanded,
   verbosity,
+  toggleDetailsHint,
+  showDetailsInline,
 }) => {
   const isError = node.status === CoreToolCallStatus.Error;
 
@@ -79,14 +99,14 @@ const TraceNodeRowComponent: FC<TraceNodeRowProps> = ({
   }
 
   const hasChildren = node.children.length > 0;
-  const treePrefix = buildTreePrefix(depth, hasChildren, isExpanded);
+  const hasDetails = hasTraceDetailSections(node);
+  const treePrefix = buildTreePrefix(depth, isLast, ancestorHasMoreSiblings);
   const bg = isSelected ? theme.background.focus : undefined;
-  const hasOutput = node.resultDisplay !== undefined && node.resultDisplay !== null;
   const name = truncateInline(node.name, MAX_NAME_CHARS);
   const description =
     verbosity !== 'quiet' && node.description
-    ? truncateInline(node.description, MAX_DESCRIPTION_CHARS)
-    : undefined;
+      ? truncateInline(node.description, MAX_DESCRIPTION_CHARS)
+      : undefined;
   const typeLabel = getNodeTypeLabel(node);
 
   const debugParts: string[] = [];
@@ -104,6 +124,11 @@ const TraceNodeRowComponent: FC<TraceNodeRowProps> = ({
     }
   }
 
+  const detailIndent = Math.max(2, depth * 3 + 2);
+  const inlineSeparator =
+    node.type === 'tool' || node.type === 'subagent' ? ': ' : ' ';
+  const disclosureMarker = hasChildren ? (isExpanded ? '▾ ' : '▸ ') : '  ';
+
   return (
     <Box
       flexDirection="column"
@@ -112,65 +137,70 @@ const TraceNodeRowComponent: FC<TraceNodeRowProps> = ({
     >
       <Box flexDirection="row" width="100%" backgroundColor={bg} paddingX={1}>
         <Text color={theme.text.secondary}>{treePrefix}</Text>
+        <Text color={theme.text.secondary}>{disclosureMarker}</Text>
 
         {node.hasFailedDescendant && !isError && (
           <Text color={theme.status.warning}>! </Text>
         )}
 
-        <Text color={theme.text.secondary} dimColor>{`[${typeLabel}] `}</Text>
+        {verbosity === 'debug' && (
+          <Text color={theme.text.secondary} dimColor>{`[${typeLabel}] `}</Text>
+        )}
 
-        <Box marginRight={1}>
-          <ToolStatusIndicator status={node.status} name={node.name} />
+        <Box flexGrow={1} flexShrink={1} overflow="hidden">
+          <Text
+            color={statusColor}
+            bold={isSelected || isError || node.type !== 'tool'}
+            wrap="truncate-end"
+          >
+            {name}
+            {description && (
+              <Text color={theme.text.secondary} dimColor>
+                {`${inlineSeparator}${truncateInline(description, MAX_DESCRIPTION_CHARS)}`}
+              </Text>
+            )}
+            {node.retryCount && node.retryCount > 1 && (
+              <Text color={theme.status.warning} bold>{` x${node.retryCount}`}</Text>
+            )}
+            {node.isConfirming && (
+              <Text color={theme.status.warning} dimColor>
+                {' waiting'}
+              </Text>
+            )}
+            {isError && (
+              <Text color={theme.status.error} bold>
+                {' failed'}
+              </Text>
+            )}
+            {hasDetails && !isDetailsExpanded && isSelected && (
+              <Text color={theme.ui.active} dimColor>
+                {`  [${toggleDetailsHint}]`}
+              </Text>
+            )}
+            {hasDetails && isDetailsExpanded && isSelected && !showDetailsInline && (
+              <Text color={theme.ui.active} dimColor>
+                {'  inspector open'}
+              </Text>
+            )}
+          </Text>
         </Box>
 
-        <Text
-          color={statusColor}
-          bold={isSelected || isError || node.type !== 'tool'}
-        >
-          {name}
-        </Text>
-
-        {node.retryCount && node.retryCount > 1 && (
-          <Text color={theme.status.warning} bold>{` x${node.retryCount}`}</Text>
-        )}
-
-        {description && (
-          <Text color={theme.text.secondary} dimColor>{` - ${description}`}</Text>
-        )}
-
-        {node.isConfirming && (
-          <Text color={theme.status.warning} dimColor>
-            {' (Waiting for Approval...)'}
-          </Text>
-        )}
-
-        {isError && (
-          <Text color={theme.status.error} bold>
-            {' FAILED'}
-          </Text>
-        )}
-
-        {hasOutput && !isSelected && !isError && (
-          <Text color={theme.text.secondary} dimColor>
-            {' [out]'}
-          </Text>
-        )}
+        <ToolStatusIndicator status={node.status} name={node.name} />
       </Box>
 
-      {hasOutput && isSelected && !isOutputExpanded && (
-        <Box marginLeft={2}>
-          <Text color={theme.text.secondary} dimColor>
-            [Enter to expand output]
-          </Text>
-        </Box>
+      {hasDetails && showDetailsInline && (
+        <TraceNodeDetails
+          node={node}
+          isSelected={isSelected}
+          isExpanded={isDetailsExpanded}
+          indent={detailIndent}
+          toggleHint={toggleDetailsHint}
+          layout="inline"
+        />
       )}
 
-      {hasOutput && isSelected && isOutputExpanded && (
-        <CollapsibleOutput content={node.resultDisplay} isExpanded={true} />
-      )}
-
-      {verbosity === 'debug' && (
-        <Box marginLeft={2}>
+      {verbosity === 'debug' && debugParts.length > 0 && (
+        <Box paddingLeft={detailIndent}>
           <Text color={theme.text.secondary} dimColor>
             {debugParts.join('  ')}
           </Text>

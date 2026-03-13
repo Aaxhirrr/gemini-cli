@@ -143,7 +143,10 @@ function summarizeToolCalls(
     }
 
     // Record if the tool call was accepted.
-    if (toolCall.outcome !== ToolConfirmationOutcome.Cancel) {
+    if (
+      toolCall.outcome !== ToolConfirmationOutcome.Cancel &&
+      toolCall.outcome !== ToolConfirmationOutcome.Skip
+    ) {
       acceptedToolCalls++;
 
       // Edits are ACCEPT_FILE, everything else is UNKNOWN.

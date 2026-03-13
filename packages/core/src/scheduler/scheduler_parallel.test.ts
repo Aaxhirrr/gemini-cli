@@ -44,6 +44,7 @@ import {
   SchedulerStateManager,
   type TerminalCallHandler,
 } from './state-manager.js';
+import { resolveConfirmation } from './confirmation.js';
 import { checkPolicy, updatePolicy } from './policy.js';
 import { ToolExecutor } from './tool-executor.js';
 import { ToolModificationHandler } from './tool-modifier.js';
@@ -68,6 +69,7 @@ import type { PolicyEngine } from '../policy/policy-engine.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import { ApprovalMode, PolicyDecision } from '../policy/types.js';
 import {
+  ToolConfirmationOutcome,
   type AnyDeclarativeTool,
   type AnyToolInvocation,
   Kind,
@@ -231,6 +233,11 @@ describe('Scheduler Parallel Execution', () => {
       decision: PolicyDecision.ALLOW,
       rule: undefined,
     });
+    vi.mocked(resolveConfirmation).mockReset();
+    vi.mocked(resolveConfirmation).mockResolvedValue({
+      outcome: ToolConfirmationOutcome.ProceedOnce,
+      lastDetails: undefined,
+    });
     vi.mocked(updatePolicy).mockReset();
 
     const mockActiveCallsMap = new Map<string, ToolCall>();
@@ -332,6 +339,7 @@ describe('Scheduler Parallel Execution', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.clearAllMocks();
   });
 
@@ -380,6 +388,31 @@ describe('Scheduler Parallel Execution', () => {
     expect(metadata).toMatchObject({
       input: [req1, req2, req3],
     });
+  });
+
+  it('should disable parallel batching in step mode', async () => {
+    vi.stubEnv('GEMINI_STEP_MODE', 'true');
+    const executionLog: string[] = [];
+
+    mockExecutor.execute.mockImplementation(async ({ call }) => {
+      const id = call.request.callId;
+      executionLog.push(`start-${id}`);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      executionLog.push(`end-${id}`);
+      return {
+        status: 'success',
+        response: { callId: id, responseParts: [] },
+      } as unknown as SuccessfulToolCall;
+    });
+
+    await scheduler.schedule([req1, req2], signal);
+
+    expect(executionLog).toEqual([
+      'start-call-1',
+      'end-call-1',
+      'start-call-2',
+      'end-call-2',
+    ]);
   });
 
   it('should execute non-read-only tools sequentially', async () => {

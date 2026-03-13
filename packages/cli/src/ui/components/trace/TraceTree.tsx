@@ -9,18 +9,22 @@ import { useState, useMemo, useEffect, useCallback, useRef, memo } from 'react';
 import { Box, Text } from 'ink';
 import type { TraceNode } from '../../state/useTraceTree.js';
 import { TraceNodeRow } from './TraceNodeRow.js';
+import { TraceNodeDetails } from './TraceNodeDetails.js';
 import { CoreToolCallStatus } from '@google/gemini-cli-core';
-import { useKeypress } from '../../hooks/useKeypress.js';
+import { useKeypress, type Key } from '../../hooks/useKeypress.js';
 import { KeypressPriority } from '../../contexts/KeypressContext.js';
 import type { TraceVerbosityMode } from './traceVerbosity.js';
 import { theme } from '../../semantic-colors.js';
+import { useKeyMatchers } from '../../hooks/useKeyMatchers.js';
+import { Command } from '../../key/keyMatchers.js';
+import { formatCommand } from '../../key/keybindingUtils.js';
+import { hasTraceDetailSections } from './traceDetails.js';
 
-/**
- * Maximum number of trace nodes rendered at once.
- * Keeps the Ink dynamic-area small so redraws are fast and flicker-free.
- */
 const MAX_VIEWPORT_NODES = 15;
 const VIEWPORT_PAGE_JUMP = Math.max(4, MAX_VIEWPORT_NODES - 4);
+const INSPECTOR_PANEL_HEIGHT = 18;
+
+type TraceDetailView = 'inline' | 'panel';
 
 interface TraceTreeProps {
   rootNodes: TraceNode[];
@@ -28,11 +32,14 @@ interface TraceTreeProps {
   isFocused?: boolean;
   verbosity?: TraceVerbosityMode;
   onNodeSelect?: (node: TraceNode) => void;
+  detailView?: TraceDetailView;
 }
 
 interface FlattenedNode {
   node: TraceNode;
   depth: number;
+  isLast: boolean;
+  ancestorHasMoreSiblings: boolean[];
 }
 
 function collectAutoExpandedIds(
@@ -61,10 +68,7 @@ function collectAutoExpandedIds(
 
 function collectFailurePathIds(nodes: TraceNode[], ids: Set<string>): void {
   for (const node of nodes) {
-    if (
-      node.hasFailedDescendant ||
-      node.status === CoreToolCallStatus.Error
-    ) {
+    if (node.hasFailedDescendant || node.status === CoreToolCallStatus.Error) {
       ids.add(node.id);
     }
     if (node.children.length > 0) {
@@ -73,10 +77,6 @@ function collectFailurePathIds(nodes: TraceNode[], ids: Set<string>): void {
   }
 }
 
-/**
- * Compute the viewport window [start, end) for a sliding window of size
- * `maxSize` centered on `selectedIndex` within a list of `totalCount` items.
- */
 function computeViewport(
   totalCount: number,
   selectedIndex: number,
@@ -106,12 +106,22 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
   isFocused = true,
   verbosity = 'standard',
   onNodeSelect,
+  detailView = 'inline',
 }) => {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-  const [expandedOutputs, setExpandedOutputs] = useState<Set<string>>(new Set());
+  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set());
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [isInspectorExpanded, setIsInspectorExpanded] = useState(false);
   const isInteractive = isActive && isFocused;
+  const keyMatchers = useKeyMatchers();
   const autoExpandedNodeIdsRef = useRef(new Set<string>());
+  const usesInspectorPanel = detailView === 'panel';
+  const isInspectorNavigable = usesInspectorPanel && isInspectorOpen;
+  const toggleDetailsHint = isInteractive || isInspectorNavigable
+    ? 'Enter'
+    : formatCommand(Command.SHOW_MORE_LINES);
+  const showMoreHint = formatCommand(Command.SHOW_MORE_LINES);
 
   useEffect(() => {
     const failureIds = new Set<string>();
@@ -160,16 +170,29 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
   const visibleNodes = useMemo(() => {
     const flat: FlattenedNode[] = [];
 
-    const traverse = (nodes: TraceNode[], depth: number) => {
-      for (const node of nodes) {
-        flat.push({ node, depth });
+    const traverse = (
+      nodes: TraceNode[],
+      depth: number,
+      ancestorHasMoreSiblings: boolean[],
+    ) => {
+      nodes.forEach((node, index) => {
+        const isLast = index === nodes.length - 1;
+        flat.push({
+          node,
+          depth,
+          isLast,
+          ancestorHasMoreSiblings,
+        });
         if (expandedNodes.has(node.id) && node.children.length > 0) {
-          traverse(node.children, depth + 1);
+          traverse(node.children, depth + 1, [
+            ...ancestorHasMoreSiblings,
+            !isLast,
+          ]);
         }
-      }
+      });
     };
 
-    traverse(rootNodes, 0);
+    traverse(rootNodes, 0, []);
     return flat;
   }, [rootNodes, expandedNodes]);
 
@@ -182,7 +205,7 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
     });
 
     const visibleIds = new Set(visibleNodes.map((item) => item.node.id));
-    setExpandedOutputs((prev) => {
+    setExpandedDetails((prev) => {
       let changed = false;
       const next = new Set<string>();
       for (const id of prev) {
@@ -194,40 +217,67 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
       }
       return changed ? next : prev;
     });
+
+    if (visibleNodes.length === 0) {
+      setIsInspectorOpen(false);
+      setIsInspectorExpanded(false);
+    }
   }, [visibleNodes]);
 
-  // Use refs for rapidly-changing values so the keypress handler identity
-  // stays stable across renders. This prevents useKeypress from
-  // re-subscribing on every selectedIndex / visibleNodes change, which
-  // was a major source of flicker during keyboard navigation and streaming.
   const visibleNodesRef = useRef(visibleNodes);
   visibleNodesRef.current = visibleNodes;
   const selectedIndexRef = useRef(selectedIndex);
   selectedIndexRef.current = selectedIndex;
   const expandedNodesRef = useRef(expandedNodes);
   expandedNodesRef.current = expandedNodes;
+  const expandedDetailsRef = useRef(expandedDetails);
+  expandedDetailsRef.current = expandedDetails;
   const onNodeSelectRef = useRef(onNodeSelect);
   onNodeSelectRef.current = onNodeSelect;
+  const isInteractiveRef = useRef(isInteractive);
+  isInteractiveRef.current = isInteractive;
+  const isInspectorOpenRef = useRef(isInspectorOpen);
+  isInspectorOpenRef.current = isInspectorOpen;
 
   const handleKeypress = useCallback(
-    (key: { name: string }) => {
+    (key: Key) => {
       const nodes = visibleNodesRef.current;
       const selIdx = selectedIndexRef.current;
       const expanded = expandedNodesRef.current;
+      const detailsExpanded = expandedDetailsRef.current;
+      const interactive = isInteractiveRef.current;
+      const current = nodes[selIdx];
 
       if (nodes.length === 0) {
         return false;
       }
 
-      if (key.name === 'up') {
-        setSelectedIndex((prev) => Math.max(0, prev - 1));
-        return true;
-      }
+      const toggleCurrentDetails = () => {
+        if (!current || !hasTraceDetailSections(current.node)) {
+          return false;
+        }
 
-      if (key.name === 'down') {
-        setSelectedIndex((prev) => Math.min(nodes.length - 1, prev + 1));
+        if (usesInspectorPanel) {
+          if (isInspectorOpenRef.current) {
+            setIsInspectorOpen(false);
+            setIsInspectorExpanded(false);
+          } else {
+            setIsInspectorOpen(true);
+          }
+          return true;
+        }
+
+        setExpandedDetails((prev) => {
+          const next = new Set(prev);
+          if (next.has(current.node.id)) {
+            next.delete(current.node.id);
+          } else {
+            next.add(current.node.id);
+          }
+          return next;
+        });
         return true;
-      }
+      };
 
       if (key.name === 'pageup') {
         setSelectedIndex((prev) => Math.max(0, prev - VIEWPORT_PAGE_JUMP));
@@ -251,8 +301,42 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
         return true;
       }
 
+      if (
+        current &&
+        keyMatchers[Command.SHOW_MORE_LINES](key) &&
+        hasTraceDetailSections(current.node)
+      ) {
+        if (usesInspectorPanel) {
+          if (!isInspectorOpenRef.current) {
+            setIsInspectorOpen(true);
+            setIsInspectorExpanded(false);
+          } else {
+            setIsInspectorExpanded((prev) => !prev);
+          }
+          return true;
+        }
+
+        return toggleCurrentDetails();
+      }
+
+      const allowNavigation =
+        interactive || (usesInspectorPanel && isInspectorOpenRef.current);
+
+      if (!allowNavigation) {
+        return false;
+      }
+
+      if (key.name === 'up') {
+        setSelectedIndex((prev) => Math.max(0, prev - 1));
+        return true;
+      }
+
+      if (key.name === 'down') {
+        setSelectedIndex((prev) => Math.min(nodes.length - 1, prev + 1));
+        return true;
+      }
+
       if (key.name === 'right' || key.name === 'space') {
-        const current = nodes[selIdx];
         if (current && current.node.children.length > 0) {
           setExpandedNodes((prev) => {
             const next = new Set(prev);
@@ -264,8 +348,22 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
       }
 
       if (key.name === 'left') {
-        const current = nodes[selIdx];
         if (!current) {
+          return true;
+        }
+
+        if (usesInspectorPanel && isInspectorOpenRef.current) {
+          setIsInspectorOpen(false);
+          setIsInspectorExpanded(false);
+          return true;
+        }
+
+        if (!usesInspectorPanel && detailsExpanded.has(current.node.id)) {
+          setExpandedDetails((prev) => {
+            const next = new Set(prev);
+            next.delete(current.node.id);
+            return next;
+          });
           return true;
         }
 
@@ -290,17 +388,16 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
       }
 
       if (key.name === 'enter') {
-        const current = nodes[selIdx];
         if (!current) {
           return true;
         }
 
-        const hasOutput =
-          current.node.resultDisplay !== undefined &&
-          current.node.resultDisplay !== null;
+        if (hasTraceDetailSections(current.node)) {
+          return toggleCurrentDetails();
+        }
 
-        if (hasOutput) {
-          setExpandedOutputs((prev) => {
+        if (current.node.children.length > 0) {
+          setExpandedNodes((prev) => {
             const next = new Set(prev);
             if (next.has(current.node.id)) {
               next.delete(current.node.id);
@@ -321,20 +418,34 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
 
       return false;
     },
-    [], // stable — reads from refs
+    [keyMatchers, usesInspectorPanel],
   );
 
+  const shouldCaptureNavigation = isInteractive || isInspectorNavigable;
+
   useKeypress(handleKeypress, {
-    isActive: isInteractive && visibleNodes.length > 0,
-    priority: KeypressPriority.Normal,
+    isActive: isFocused && visibleNodes.length > 0,
+    priority: shouldCaptureNavigation
+      ? KeypressPriority.Critical
+      : KeypressPriority.Normal,
   });
 
   if (visibleNodes.length === 0) {
     return null;
   }
 
-  // Viewport windowing: only render a sliding window of nodes to keep
-  // the Ink dynamic render area small and prevent flicker on re-draws.
+  const selectedNode = visibleNodes[selectedIndex]?.node ?? null;
+  const selectedNodeHasDetails = selectedNode
+    ? hasTraceDetailSections(selectedNode)
+    : false;
+  const selectedInspectorNode = usesInspectorPanel ? selectedNode : null;
+
+  useEffect(() => {
+    if (usesInspectorPanel) {
+      setIsInspectorExpanded(false);
+    }
+  }, [selectedNode?.id, usesInspectorPanel]);
+
   const { start, end } = computeViewport(
     visibleNodes.length,
     selectedIndex,
@@ -343,43 +454,116 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
   const windowedNodes = visibleNodes.slice(start, end);
   const hasScrollUp = start > 0;
   const hasScrollDown = end < visibleNodes.length;
+  const isSelectionVisible = isFocused && visibleNodes.length > 0;
 
   return (
-    <Box flexDirection="column" borderStyle="round" paddingX={1} width="100%">
-      {hasScrollUp && (
-        <Text
-          color={isInteractive ? theme.ui.active : theme.text.secondary}
-          dimColor={!isInteractive}
-          bold={isInteractive}
+    <Box flexDirection="column" width="100%">
+      <Box flexDirection="column" borderStyle="round" paddingX={1} width="100%">
+        {hasScrollUp && (
+          <Text
+            color={isInteractive ? theme.ui.active : theme.text.secondary}
+            dimColor={!isInteractive}
+            bold={isInteractive}
+          >
+            {`  [PgUp] ${start} more above`}
+          </Text>
+        )}
+        {windowedNodes.map((item, windowIndex) => {
+          const globalIndex = start + windowIndex;
+          const isCurrentSelection = isSelectionVisible && globalIndex === selectedIndex;
+          return (
+            <TraceNodeRow
+              key={item.node.id}
+              node={item.node}
+              depth={item.depth}
+              isLast={item.isLast}
+              ancestorHasMoreSiblings={item.ancestorHasMoreSiblings}
+              isSelected={isCurrentSelection}
+              isExpanded={expandedNodes.has(item.node.id)}
+              isDetailsExpanded={
+                usesInspectorPanel
+                  ? !!(isInspectorOpen && isCurrentSelection && hasTraceDetailSections(item.node))
+                  : expandedDetails.has(item.node.id)
+              }
+              verbosity={verbosity}
+              toggleDetailsHint={toggleDetailsHint}
+              showDetailsInline={!usesInspectorPanel}
+            />
+          );
+        })}
+        {hasScrollDown && (
+          <Text
+            color={isInteractive ? theme.ui.active : theme.text.secondary}
+            dimColor={!isInteractive}
+            bold={isInteractive}
+          >
+            {`  [PgDn] ${visibleNodes.length - end} more below`}
+          </Text>
+        )}
+      </Box>
+
+      {usesInspectorPanel && (
+        <Box
+          flexDirection="column"
+          width="100%"
+          height={INSPECTOR_PANEL_HEIGHT}
+          marginTop={1}
+          borderStyle="round"
+          borderColor={theme.border.default}
+          paddingX={1}
+          overflow="hidden"
         >
-          {`  [PgUp] ${start} more above`}
-        </Text>
-      )}
-      {windowedNodes.map((item, windowIndex) => {
-        const globalIndex = start + windowIndex;
-        return (
-          <TraceNodeRow
-            key={item.node.id}
-            node={item.node}
-            depth={item.depth}
-            isSelected={isInteractive && globalIndex === selectedIndex}
-            isExpanded={expandedNodes.has(item.node.id)}
-            isOutputExpanded={expandedOutputs.has(item.node.id)}
-            verbosity={verbosity}
-          />
-        );
-      })}
-      {hasScrollDown && (
-        <Text
-          color={isInteractive ? theme.ui.active : theme.text.secondary}
-          dimColor={!isInteractive}
-          bold={isInteractive}
-        >
-          {`  [PgDn] ${visibleNodes.length - end} more below`}
-        </Text>
+          <Text bold color={theme.ui.active}>
+            Inspector
+          </Text>
+          <Box flexDirection="column" flexGrow={1} overflow="hidden">
+            {selectedInspectorNode ? (
+              <>
+                <Text color={theme.text.secondary} dimColor wrap="truncate-end">
+                  {selectedInspectorNode.name}
+                </Text>
+                {isInspectorOpen ? (
+                  selectedNodeHasDetails ? (
+                    <TraceNodeDetails
+                      node={selectedInspectorNode}
+                      isSelected={true}
+                      isExpanded={true}
+                      indent={0}
+                      toggleHint={toggleDetailsHint}
+                      layout="panel"
+                      panelMode={isInspectorExpanded ? 'expanded' : 'compact'}
+                      sectionMaxLines={2}
+                      showMoreHint={showMoreHint}
+                    />
+                  ) : (
+                    <Box marginTop={1}>
+                      <Text color={theme.text.secondary} dimColor>
+                        No details available for the selected node.
+                      </Text>
+                    </Box>
+                  )
+                ) : (
+                  <Box marginTop={1}>
+                    <Text color={theme.text.secondary} dimColor>
+                      [{toggleDetailsHint}] Inspect the selected node without resizing the live trace.
+                    </Text>
+                  </Box>
+                )}
+              </>
+            ) : (
+              <Box marginTop={1}>
+                <Text color={theme.text.secondary} dimColor>
+                  Select a node to inspect its details.
+                </Text>
+              </Box>
+            )}
+          </Box>
+        </Box>
       )}
     </Box>
   );
 };
 
 export const TraceTree = memo(TraceTreeComponent);
+
+

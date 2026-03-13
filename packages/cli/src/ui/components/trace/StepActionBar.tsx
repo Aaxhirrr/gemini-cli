@@ -6,12 +6,13 @@
 
 import type { FC } from 'react';
 import { useCallback, useRef } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, type DOMElement } from 'ink';
 import { theme } from '../../semantic-colors.js';
 import type { TraceNode } from '../../state/useTraceTree.js';
 import { CoreToolCallStatus } from '@google/gemini-cli-core';
 import { useKeypress } from '../../hooks/useKeypress.js';
 import { KeypressPriority } from '../../contexts/KeypressContext.js';
+import { useMouseClick } from '../../hooks/useMouseClick.js';
 
 interface StepActionBarProps {
   pendingNode: TraceNode | null;
@@ -21,6 +22,42 @@ interface StepActionBarProps {
   onContinue: () => void;
   onCancel: () => void;
 }
+
+interface StepActionButtonProps {
+  shortcut: string;
+  label: string;
+  color: string;
+  isActive: boolean;
+  onPress: () => void;
+}
+
+const StepActionButton: FC<StepActionButtonProps> = ({
+  shortcut,
+  label,
+  color,
+  isActive,
+  onPress,
+}) => {
+  const buttonRef = useRef<DOMElement>(null);
+  const onPressRef = useRef(onPress);
+  onPressRef.current = onPress;
+
+  useMouseClick(
+    buttonRef,
+    () => {
+      onPressRef.current();
+    },
+    { isActive },
+  );
+
+  return (
+    <Box ref={buttonRef}>
+      <Text color={color}>
+        <Text bold>{shortcut}</Text> {label}
+      </Text>
+    </Box>
+  );
+};
 
 export const StepActionBar: FC<StepActionBarProps> = ({
   pendingNode,
@@ -86,6 +123,7 @@ export const StepActionBar: FC<StepActionBarProps> = ({
   const isAwaitingApproval =
     pendingNode.status === CoreToolCallStatus.AwaitingApproval ||
     pendingNode.isConfirming;
+  const areActionsInteractive = isActive && !!pendingNode;
 
   return (
     <Box
@@ -108,18 +146,34 @@ export const StepActionBar: FC<StepActionBarProps> = ({
       </Box>
 
       <Box flexDirection="row" gap={2}>
-        <Text color={theme.status.success}>
-          <Text bold>[Enter]</Text> Execute
-        </Text>
-        <Text color={theme.status.warning}>
-          <Text bold>[s]</Text> Skip
-        </Text>
-        <Text color={theme.ui.active}>
-          <Text bold>[c]</Text> Continue
-        </Text>
-        <Text color={theme.status.error}>
-          <Text bold>[x]</Text> Cancel
-        </Text>
+        <StepActionButton
+          shortcut="[Enter]"
+          label="Execute"
+          color={theme.status.success}
+          isActive={areActionsInteractive}
+          onPress={onExecute}
+        />
+        <StepActionButton
+          shortcut="[s]"
+          label="Skip"
+          color={theme.status.warning}
+          isActive={areActionsInteractive}
+          onPress={onSkip}
+        />
+        <StepActionButton
+          shortcut="[c]"
+          label="Continue"
+          color={theme.ui.active}
+          isActive={areActionsInteractive}
+          onPress={onContinue}
+        />
+        <StepActionButton
+          shortcut="[x]"
+          label="Cancel"
+          color={theme.status.error}
+          isActive={areActionsInteractive}
+          onPress={onCancel}
+        />
       </Box>
     </Box>
   );

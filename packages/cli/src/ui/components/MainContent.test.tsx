@@ -493,6 +493,40 @@ describe('MainContent', () => {
     unmount();
   });
 
+  it('adds a blank line between consecutive gemini items even without trailing newlines', async () => {
+    vi.mocked(useAlternateBuffer).mockReturnValue(true);
+    const uiState = {
+      ...defaultMockUiState,
+      history: [
+        { id: 1, type: 'gemini', text: 'First gemini item' },
+        { id: 2, type: 'gemini', text: 'Second gemini item' },
+      ],
+    };
+
+    const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      <MainContent />,
+      {
+        uiState: uiState as Partial<UIState>,
+        useAlternateBuffer: true,
+      },
+    );
+
+    await waitUntilReady();
+
+    const lines = lastFrame().split('\n');
+    const firstIndex = lines.findIndex((line) =>
+      line.includes('First gemini item'),
+    );
+    const secondIndex = lines.findIndex((line) =>
+      line.includes('Second gemini item'),
+    );
+
+    expect(firstIndex).toBeGreaterThanOrEqual(0);
+    expect(secondIndex).toBeGreaterThan(firstIndex + 1);
+
+    unmount();
+  });
+
   it('renders mixed history items (user + gemini) with single line padding between them', async () => {
     vi.mocked(useAlternateBuffer).mockReturnValue(true);
     const uiState = {

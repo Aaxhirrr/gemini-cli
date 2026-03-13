@@ -48,6 +48,7 @@ interface HistoryItemDisplayProps {
   isExpandable?: boolean;
   isFirstThinking?: boolean;
   isFirstAfterThinking?: boolean;
+  hasLeadingSpacing?: boolean;
 }
 
 export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
@@ -60,6 +61,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
   isExpandable,
   isFirstThinking = false,
   isFirstAfterThinking = false,
+  hasLeadingSpacing = false,
 }) => {
   const settings = useSettings();
   const inlineThinkingMode = getInlineThinkingMode(settings);
@@ -67,13 +69,14 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
 
   const needsTopMarginAfterThinking =
     isFirstAfterThinking && inlineThinkingMode !== 'off';
+  const topMargin = needsTopMarginAfterThinking || hasLeadingSpacing ? 1 : 0;
 
   return (
     <Box
       flexDirection="column"
       key={itemForDisplay.id}
       width={terminalWidth}
-      marginTop={needsTopMarginAfterThinking ? 1 : 0}
+      marginTop={topMargin}
     >
       {/* Render standard message types */}
       {itemForDisplay.type === 'thinking' && inlineThinkingMode !== 'off' && (

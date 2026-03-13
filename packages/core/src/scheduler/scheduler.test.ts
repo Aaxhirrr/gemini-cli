@@ -324,6 +324,7 @@ describe('Scheduler (Orchestrator)', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.clearAllMocks();
   });
 
@@ -775,6 +776,40 @@ describe('Scheduler (Orchestrator)', () => {
       expect(mockExecutor.execute).toHaveBeenCalled();
     });
 
+    it('should force confirmation in step mode even when policy allows the tool', async () => {
+      vi.stubEnv('GEMINI_STEP_MODE', 'true');
+      vi.mocked(checkPolicy).mockResolvedValue({
+        decision: PolicyDecision.ALLOW,
+        rule: undefined,
+      });
+
+      const resolution = {
+        outcome: ToolConfirmationOutcome.ProceedOnce,
+        lastDetails: {
+          type: 'info' as const,
+          title: 'Confirm: test-tool',
+          prompt: 'Read config file',
+        },
+      };
+      vi.mocked(resolveConfirmation).mockResolvedValue(resolution);
+
+      mockExecutor.execute.mockResolvedValue({
+        status: CoreToolCallStatus.Success,
+      } as unknown as SuccessfulToolCall);
+
+      await scheduler.schedule(req1, signal);
+
+      expect(resolveConfirmation).toHaveBeenCalledWith(
+        expect.anything(),
+        signal,
+        expect.objectContaining({
+          forceConfirmation: true,
+        }),
+      );
+      expect(updatePolicy).not.toHaveBeenCalled();
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
+    });
+
     it('should auto-approve remaining identical tools in batch after ProceedAlways', async () => {
       // First call requires confirmation, second is auto-approved (simulating policy update)
       vi.mocked(checkPolicy)
@@ -937,6 +972,43 @@ describe('Scheduler (Orchestrator)', () => {
       // We assume the state manager stores these details.
       // Since we mock state manager, we just verify the flow passed the details.
       // In a real integration, StateManager.updateStatus would merge these.
+    });
+
+    it('should skip only the current step and continue with later queued calls', async () => {
+      vi.mocked(checkPolicy).mockResolvedValue({
+        decision: PolicyDecision.ASK_USER,
+        rule: undefined,
+      });
+
+      vi.mocked(resolveConfirmation)
+        .mockResolvedValueOnce({
+          outcome: ToolConfirmationOutcome.Skip,
+        })
+        .mockResolvedValueOnce({
+          outcome: ToolConfirmationOutcome.ProceedOnce,
+        });
+
+      mockExecutor.execute.mockResolvedValue({
+        status: CoreToolCallStatus.Success,
+        response: {
+          callId: 'call-2',
+          responseParts: [],
+        } as unknown as ToolCallResponseInfo,
+      } as unknown as SuccessfulToolCall);
+
+      await scheduler.schedule([req1, req2], signal);
+
+      expect(mockStateManager.updateStatus).toHaveBeenCalledWith(
+        'call-1',
+        CoreToolCallStatus.Cancelled,
+        'User skipped execution in step mode.',
+      );
+      expect(mockStateManager.cancelAllQueued).not.toHaveBeenCalledWith(
+        'User cancelled operation',
+      );
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
+      expect(mockStateManager.finalizeCall).toHaveBeenCalledWith('call-1');
+      expect(mockStateManager.finalizeCall).toHaveBeenCalledWith('call-2');
     });
   });
 

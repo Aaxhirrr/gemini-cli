@@ -15,7 +15,14 @@ import {
   type VirtualizedListRef,
 } from './shared/VirtualizedList.js';
 import { ScrollableList } from './shared/ScrollableList.js';
-import { useMemo, memo, useCallback, useEffect, useRef } from 'react';
+import {
+  useMemo,
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 import { MAX_GEMINI_MESSAGE_LINES } from '../constants.js';
 import { useConfirmingTool } from '../hooks/useConfirmingTool.js';
 import { ToolConfirmationQueue } from './ToolConfirmationQueue.js';
@@ -26,376 +33,34 @@ import {
   filterTraceByVerbosity,
   resolveTraceVerbosity,
 } from './trace/traceVerbosity.js';
+import { buildPresentationTraceTree } from './trace/presentationTree.js';
 import { useToolActions } from '../contexts/ToolActionsContext.js';
 import { useUIActions } from '../contexts/UIActionsContext.js';
-import {
-  CoreToolCallStatus,
-  ToolConfirmationOutcome,
-} from '@google/gemini-cli-core';
+import { ToolConfirmationOutcome } from '@google/gemini-cli-core';
 import { mapToDisplay } from '../hooks/toolMapping.js';
 import { StreamingState } from '../types.js';
 import { useSettings } from '../contexts/SettingsContext.js';
 import type { ConfirmingToolState } from '../hooks/useConfirmingTool.js';
 import type { TraceVerbosityMode } from './trace/traceVerbosity.js';
 import { theme } from '../semantic-colors.js';
-import type { HistoryItem, HistoryItemWithoutId } from '../types.js';
+import type { HistoryItemWithoutId } from '../types.js';
 
 const MemoizedHistoryItemDisplay = memo(HistoryItemDisplay);
 const MemoizedAppHeader = memo(AppHeader);
-const TRACE_TASK_ROOT_ID = 'trace-task-root';
 
-function isTraceStatusActive(status: CoreToolCallStatus): boolean {
+function shouldAddLeadingSpacing(
+  previousItem: HistoryItemWithoutId | undefined,
+  currentItem: HistoryItemWithoutId,
+): boolean {
   return (
-    status === CoreToolCallStatus.Scheduled ||
-    status === CoreToolCallStatus.Validating ||
-    status === CoreToolCallStatus.Executing ||
-    status === CoreToolCallStatus.AwaitingApproval
+    previousItem?.type === 'gemini' &&
+    currentItem.type === 'gemini' &&
+    !previousItem.text.endsWith('\n')
   );
-}
-
-function deriveAggregateTraceStatus(
-  children: TraceNode[],
-  isActiveFallback = false,
-): CoreToolCallStatus {
-  const childStatuses = children.map((child) => child.status);
-
-  if (childStatuses.some((status) => status === CoreToolCallStatus.Error)) {
-    return CoreToolCallStatus.Error;
-  }
-  if (
-    childStatuses.some((status) => status === CoreToolCallStatus.AwaitingApproval)
-  ) {
-    return CoreToolCallStatus.AwaitingApproval;
-  }
-  if (childStatuses.some((status) => status === CoreToolCallStatus.Executing)) {
-    return CoreToolCallStatus.Executing;
-  }
-  if (childStatuses.some((status) => status === CoreToolCallStatus.Validating)) {
-    return CoreToolCallStatus.Validating;
-  }
-  if (childStatuses.some((status) => status === CoreToolCallStatus.Scheduled)) {
-    return CoreToolCallStatus.Scheduled;
-  }
-  if (
-    childStatuses.length > 0 &&
-    childStatuses.every((status) => status === CoreToolCallStatus.Cancelled)
-  ) {
-    return CoreToolCallStatus.Cancelled;
-  }
-  if (isActiveFallback) {
-    return CoreToolCallStatus.Executing;
-  }
-  return CoreToolCallStatus.Success;
-}
-
-function collectRootIdByDescendantId(
-  rootNodes: TraceNode[],
-): Map<string, string> {
-  const rootIdByDescendantId = new Map<string, string>();
-
-  const visit = (node: TraceNode, rootId: string) => {
-    rootIdByDescendantId.set(node.id, rootId);
-    for (const child of node.children) {
-      visit(child, rootId);
-    }
-  };
-
-  for (const rootNode of rootNodes) {
-    visit(rootNode, rootNode.id);
-  }
-
-  return rootIdByDescendantId;
-}
-
-function getPhaseLabel(rootNode: TraceNode): string {
-  if (rootNode.type === 'subagent') {
-    return 'Delegate to nested agent';
-  }
-
-  const toolName = (
-    rootNode.originalRequestName ??
-    rootNode.name
-  ).toLowerCase();
-
-  if (
-    toolName.includes('find') ||
-    toolName.includes('search') ||
-    toolName.includes('grep') ||
-    toolName.includes('glob')
-  ) {
-    return 'Discover relevant files';
-  }
-
-  if (
-    toolName.includes('read') ||
-    toolName.includes('open') ||
-    toolName.includes('list') ||
-    toolName.includes('folder')
-  ) {
-    return 'Inspect source files';
-  }
-
-  if (toolName.includes('shell') || toolName.includes('command')) {
-    return 'Run commands';
-  }
-
-  if (
-    toolName.includes('edit') ||
-    toolName.includes('write') ||
-    toolName.includes('replace') ||
-    toolName.includes('patch')
-  ) {
-    return 'Apply changes';
-  }
-
-  return 'Process findings';
-}
-
-function formatPhaseDecisionName(
-  phaseLabel: string,
-  occurrence: number,
-): string {
-  return occurrence > 1 ? `${phaseLabel} (${occurrence})` : phaseLabel;
-}
-
-function buildPhaseDecisionNodes(
-  rootNodes: TraceNode[],
-  decisionIndexStart: number,
-  phaseOccurrenceCounts: Map<string, number>,
-): {
-  decisionNodes: Array<TraceNode & { isLatestDecision?: boolean }>;
-  nextDecisionIndex: number;
-} {
-  if (rootNodes.length === 0) {
-    return { decisionNodes: [], nextDecisionIndex: decisionIndexStart };
-  }
-
-  const decisionNodes: Array<TraceNode & { isLatestDecision?: boolean }> = [];
-  let currentDecisionIndex = decisionIndexStart;
-  let currentPhaseLabel: string | undefined;
-  let currentPhaseNode:
-    | (TraceNode & { isLatestDecision?: boolean })
-    | undefined;
-
-  for (const rootNode of rootNodes) {
-    const phaseLabel = getPhaseLabel(rootNode);
-    if (!currentPhaseNode || currentPhaseLabel !== phaseLabel) {
-      currentDecisionIndex += 1;
-      currentPhaseLabel = phaseLabel;
-      const nextOccurrence = (phaseOccurrenceCounts.get(phaseLabel) ?? 0) + 1;
-      phaseOccurrenceCounts.set(phaseLabel, nextOccurrence);
-      currentPhaseNode = {
-        id: `trace-phase-${currentDecisionIndex}`,
-        parentId: TRACE_TASK_ROOT_ID,
-        type: 'decision',
-        name: formatPhaseDecisionName(phaseLabel, nextOccurrence),
-        description: undefined,
-        status: CoreToolCallStatus.Success,
-        children: [],
-      };
-      decisionNodes.push(currentPhaseNode);
-    }
-
-    currentPhaseNode.children.push(rootNode);
-  }
-
-  return {
-    decisionNodes,
-    nextDecisionIndex: currentDecisionIndex,
-  };
-}
-
-function buildPresentationTraceTree(
-  rootNodes: TraceNode[],
-  items: Array<HistoryItem | HistoryItemWithoutId>,
-  taskLabel: string | undefined,
-  isTraceActive: boolean,
-): TraceNode[] {
-  if (rootNodes.length === 0) {
-    return [];
-  }
-
-  const rootNodeById = new Map(rootNodes.map((node) => [node.id, node]));
-  const rootIdByDescendantId = collectRootIdByDescendantId(rootNodes);
-  const assignedRootIds = new Set<string>();
-  const decisionNodesById = new Map<
-    string,
-    TraceNode & { isLatestDecision?: boolean }
-  >();
-  const orderedChildren: TraceNode[] = [];
-  let currentDecisionId: string | undefined;
-  let currentPhaseNode:
-    | (TraceNode & { isLatestDecision?: boolean })
-    | undefined;
-  let currentPhaseLabel: string | undefined;
-  let decisionIndex = 0;
-  const phaseOccurrenceCounts = new Map<string, number>();
-
-  const appendRootToCurrentDecision = (rootId: string) => {
-    const rootNode = rootNodeById.get(rootId);
-    const decisionNode = currentDecisionId
-      ? decisionNodesById.get(currentDecisionId)
-      : undefined;
-
-    if (!rootNode || !decisionNode || assignedRootIds.has(rootId)) {
-      return;
-    }
-
-    decisionNode.children.push(rootNode);
-    assignedRootIds.add(rootId);
-  };
-
-  const appendRootToPhaseDecision = (rootId: string) => {
-    const rootNode = rootNodeById.get(rootId);
-    if (!rootNode || assignedRootIds.has(rootId)) {
-      return;
-    }
-
-    const phaseLabel = getPhaseLabel(rootNode);
-    if (!currentPhaseNode || currentPhaseLabel !== phaseLabel) {
-      decisionIndex += 1;
-      currentPhaseLabel = phaseLabel;
-      const nextOccurrence = (phaseOccurrenceCounts.get(phaseLabel) ?? 0) + 1;
-      phaseOccurrenceCounts.set(phaseLabel, nextOccurrence);
-      currentPhaseNode = {
-        id: `trace-phase-${decisionIndex}`,
-        parentId: TRACE_TASK_ROOT_ID,
-        type: 'decision',
-        name: formatPhaseDecisionName(phaseLabel, nextOccurrence),
-        description: undefined,
-        status: CoreToolCallStatus.Success,
-        children: [],
-      };
-      orderedChildren.push(currentPhaseNode);
-    }
-
-    currentPhaseNode.children.push(rootNode);
-    assignedRootIds.add(rootId);
-  };
-
-  for (const item of items) {
-    if (item.type === 'thinking') {
-      decisionIndex += 1;
-      currentDecisionId = `trace-decision-${decisionIndex}`;
-      currentPhaseNode = undefined;
-      currentPhaseLabel = undefined;
-      const decisionNode: TraceNode & { isLatestDecision?: boolean } = {
-        id: currentDecisionId,
-        parentId: TRACE_TASK_ROOT_ID,
-        type: 'decision',
-        name: item.thought.subject || 'Model reasoning',
-        description: item.thought.description || undefined,
-        status: CoreToolCallStatus.Success,
-        children: [],
-      };
-      orderedChildren.push(decisionNode);
-      decisionNodesById.set(currentDecisionId, decisionNode);
-      continue;
-    }
-
-    if (item.type !== 'tool_group') {
-      continue;
-    }
-
-    for (const tool of item.tools) {
-      const rootId = rootIdByDescendantId.get(tool.callId);
-      if (!rootId) {
-        continue;
-      }
-
-      if (currentDecisionId && decisionNodesById.has(currentDecisionId)) {
-        appendRootToCurrentDecision(rootId);
-      } else {
-        appendRootToPhaseDecision(rootId);
-      }
-    }
-  }
-
-  const unassignedRoots = rootNodes.filter(
-    (rootNode) => !assignedRootIds.has(rootNode.id),
-  );
-  if (unassignedRoots.length > 0) {
-    const { decisionNodes, nextDecisionIndex } = buildPhaseDecisionNodes(
-      unassignedRoots,
-      decisionIndex,
-      phaseOccurrenceCounts,
-    );
-    decisionIndex = nextDecisionIndex;
-    for (const phaseNode of decisionNodes) {
-      orderedChildren.push(phaseNode);
-    }
-    for (const rootNode of unassignedRoots) {
-      assignedRootIds.add(rootNode.id);
-    }
-  }
-
-  for (const child of orderedChildren) {
-    if (child.type === 'decision') {
-      (child as TraceNode & { isLatestDecision?: boolean }).isLatestDecision =
-        false;
-    }
-  }
-
-  for (let i = orderedChildren.length - 1; i >= 0; i--) {
-    const child = orderedChildren[i];
-    if (child?.type === 'decision') {
-      (child as TraceNode & { isLatestDecision?: boolean }).isLatestDecision =
-        true;
-      break;
-    }
-  }
-
-  const normalizedChildren = orderedChildren.map((child) => {
-    if (child.type !== 'decision') {
-      return child;
-    }
-
-    const decisionChild = child as TraceNode & { isLatestDecision?: boolean };
-
-    const hasActiveDescendant = decisionChild.children.some(
-      (descendant) => isTraceStatusActive(descendant.status),
-    );
-
-    return {
-      ...decisionChild,
-      status: deriveAggregateTraceStatus(
-        decisionChild.children,
-        Boolean(
-          decisionChild.isLatestDecision &&
-            isTraceActive &&
-            !hasActiveDescendant,
-        ),
-      ),
-      isConfirming: decisionChild.children.some(
-        (descendant) => descendant.isConfirming,
-      ),
-      hasFailedDescendant: decisionChild.children.some(
-        (descendant) =>
-          descendant.status === CoreToolCallStatus.Error ||
-          descendant.hasFailedDescendant,
-      ),
-    };
-  });
-
-  return [
-    {
-      id: TRACE_TASK_ROOT_ID,
-      type: 'task',
-      name: taskLabel ?? 'Current task',
-      description: undefined,
-      status: deriveAggregateTraceStatus(normalizedChildren, isTraceActive),
-      isConfirming: normalizedChildren.some((child) => child.isConfirming),
-      hasFailedDescendant: normalizedChildren.some(
-        (child) =>
-          child.status === CoreToolCallStatus.Error || child.hasFailedDescendant,
-      ),
-      children: normalizedChildren,
-    },
-  ];
 }
 
 /**
- * Isolated trace section — memoized separately so that changes to
+ * Isolated trace section - memoized separately so that changes to
  * mainAreaWidth, staticAreaMaxItemHeight, confirmingTool, etc. do NOT
  * cause the trace tree to re-render. This prevents terminal flicker on
  * resize and during keyboard navigation within the trace.
@@ -403,6 +68,7 @@ function buildPresentationTraceTree(
 interface TraceSectionProps {
   isTraceActive: boolean;
   visibleTraceNodes: TraceNode[];
+  isTraceTreeInteractive: boolean;
   isStepInteractionActive: boolean;
   isMainContentFocused: boolean;
   traceVerbosity: TraceVerbosityMode;
@@ -412,11 +78,13 @@ interface TraceSectionProps {
   confirm: (callId: string, outcome: ToolConfirmationOutcome) => Promise<void>;
   cancel: (callId: string) => Promise<void>;
   setStepMode: (enabled: boolean) => void;
+  detailView: 'inline' | 'panel';
 }
 
 const TraceSectionComponent = ({
   isTraceActive,
   visibleTraceNodes,
+  isTraceTreeInteractive,
   isStepInteractionActive,
   isMainContentFocused,
   traceVerbosity,
@@ -426,6 +94,7 @@ const TraceSectionComponent = ({
   confirm,
   cancel,
   setStepMode,
+  detailView,
 }: TraceSectionProps) => {
   if (visibleTraceNodes.length === 0 && !stepMode) {
     return null;
@@ -447,9 +116,10 @@ const TraceSectionComponent = ({
         <Box paddingY={1} width="100%">
           <TraceTree
             rootNodes={visibleTraceNodes}
-            isActive={isStepInteractionActive}
+            isActive={isTraceTreeInteractive}
             isFocused={isMainContentFocused}
             verbosity={traceVerbosity}
+            detailView={detailView}
           />
         </Box>
       )}
@@ -469,7 +139,7 @@ const TraceSectionComponent = ({
             if (confirmingTool) {
               void confirm(
                 confirmingTool.tool.callId,
-                ToolConfirmationOutcome.Cancel,
+                ToolConfirmationOutcome.Skip,
               );
             }
           }}
@@ -510,7 +180,7 @@ export const MainContent = () => {
   const confirmingToolCallId = confirmingTool?.tool.callId;
 
   const { confirm, cancel } = useToolActions();
-  const { setStepMode } = useUIActions();
+  const { setStepMode, refreshStatic } = useUIActions();
 
   const scrollableListRef = useRef<VirtualizedListRef<unknown>>(null);
 
@@ -616,17 +286,64 @@ export const MainContent = () => {
     ],
   );
 
+  const traceTurnKey = useMemo(() => {
+    if (rawLastUserPromptIndex < 0) {
+      return 'no-active-trace-turn';
+    }
+
+    const promptItem = uiState.history[rawLastUserPromptIndex];
+    return promptItem ? 'trace-turn:' + promptItem.id : 'no-active-trace-turn';
+  }, [uiState.history, rawLastUserPromptIndex]);
+
+  const preservedTraceRef = useRef<{
+    turnKey: string;
+    nodes: TraceNode[];
+  }>({
+    turnKey: 'no-active-trace-turn',
+    nodes: [],
+  });
+
+  useEffect(() => {
+    if (presentationTraceNodes.length > 0) {
+      preservedTraceRef.current = {
+        turnKey: traceTurnKey,
+        nodes: presentationTraceNodes,
+      };
+      return;
+    }
+
+    if (preservedTraceRef.current.turnKey !== traceTurnKey) {
+      preservedTraceRef.current = {
+        turnKey: traceTurnKey,
+        nodes: [],
+      };
+    }
+  }, [presentationTraceNodes, traceTurnKey]);
+
+  const effectivePresentationTraceNodes = useMemo(() => {
+    if (presentationTraceNodes.length > 0) {
+      return presentationTraceNodes;
+    }
+
+    return preservedTraceRef.current.turnKey === traceTurnKey
+      ? preservedTraceRef.current.nodes
+      : [];
+  }, [presentationTraceNodes, traceTurnKey]);
+
   const shouldInlineTraceView = useMemo(
-    () => traceVerbosity !== 'quiet' && presentationTraceNodes.length > 0,
-    [traceVerbosity, presentationTraceNodes.length],
+    () => traceVerbosity !== 'quiet' && effectivePresentationTraceNodes.length > 0,
+    [traceVerbosity, effectivePresentationTraceNodes.length],
   );
 
   const visibleTraceNodes = useMemo(
     () =>
       traceVerbosity === 'quiet'
         ? []
-        : filterTraceByVerbosity(presentationTraceNodes, traceVerbosity),
-    [presentationTraceNodes, traceVerbosity],
+        : filterTraceByVerbosity(
+            effectivePresentationTraceNodes,
+            traceVerbosity,
+          ),
+    [effectivePresentationTraceNodes, traceVerbosity],
   );
 
   const history = useMemo(
@@ -656,17 +373,20 @@ export const MainContent = () => {
     () =>
       history.map((item, index) => {
         const isExpandable = index > lastUserPromptIndex;
-        const prevType = index > 0 ? history[index - 1]?.type : undefined;
+        const previousItem = index > 0 ? history[index - 1] : undefined;
+        const prevType = previousItem?.type;
         const isFirstThinking =
           item.type === 'thinking' && prevType !== 'thinking';
         const isFirstAfterThinking =
           item.type !== 'thinking' && prevType === 'thinking';
+        const hasLeadingSpacing = shouldAddLeadingSpacing(previousItem, item);
 
         return {
           item,
           isExpandable,
           isFirstThinking,
           isFirstAfterThinking,
+          hasLeadingSpacing,
         };
       }),
     [history, lastUserPromptIndex],
@@ -675,7 +395,13 @@ export const MainContent = () => {
   const historyItems = useMemo(
     () =>
       augmentedHistory.map(
-        ({ item, isExpandable, isFirstThinking, isFirstAfterThinking }) => (
+        ({
+          item,
+          isExpandable,
+          isFirstThinking,
+          isFirstAfterThinking,
+          hasLeadingSpacing,
+        }) => (
           <MemoizedHistoryItemDisplay
             terminalWidth={mainAreaWidth}
             availableTerminalHeight={
@@ -691,6 +417,7 @@ export const MainContent = () => {
             isExpandable={isExpandable}
             isFirstThinking={isFirstThinking}
             isFirstAfterThinking={isFirstAfterThinking}
+            hasLeadingSpacing={hasLeadingSpacing}
           />
         ),
       ),
@@ -713,11 +440,27 @@ export const MainContent = () => {
     [historyItems, lastUserPromptIndex],
   );
 
-  const historyViewRemountKey = useMemo(
-    () =>
-      `${uiState.historyRemountKey}:${shouldInlineTraceView ? 'trace' : 'linear'}:${rawLastUserPromptIndex}`,
-    [uiState.historyRemountKey, shouldInlineTraceView, rawLastUserPromptIndex],
-  );
+  const previousInlineTraceViewRef = useRef<boolean | null>(null);
+
+  useLayoutEffect(() => {
+    if (isAlternateBuffer) {
+      previousInlineTraceViewRef.current = shouldInlineTraceView;
+      return;
+    }
+
+    const previousInlineTraceView = previousInlineTraceViewRef.current;
+    previousInlineTraceViewRef.current = shouldInlineTraceView;
+
+    // In standard terminal mode, swapping between the linear thought/tool log
+    // and the structured trace tree must go through refreshStatic(), otherwise
+    // Ink reprints the header/history and leaves duplicated copies on screen.
+    if (
+      previousInlineTraceView !== null &&
+      previousInlineTraceView !== shouldInlineTraceView
+    ) {
+      refreshStatic();
+    }
+  }, [isAlternateBuffer, shouldInlineTraceView, refreshStatic]);
 
   // Recursively find the first confirming node in the trace tree
   const findConfirmingNode = useCallback(
@@ -737,20 +480,41 @@ export const MainContent = () => {
     [rootTraceNodes, findConfirmingNode],
   );
 
+  const traceDetailView = useMemo<'inline' | 'panel'>(
+    () => (isAlternateBuffer ? 'inline' : 'panel'),
+    [isAlternateBuffer],
+  );
+
   const isStepInteractionActive = useMemo(
     () =>
       !!uiState.stepMode &&
-      !uiState.isInputActive &&
+      isMainContentFocused &&
+      (!!confirmingTool || !!confirmingTraceNode || !uiState.isInputActive),
+    [
+      uiState.stepMode,
       isMainContentFocused,
-    [uiState.stepMode, uiState.isInputActive, isMainContentFocused],
+      confirmingTool,
+      confirmingTraceNode,
+      uiState.isInputActive,
+    ],
   );
 
   const isTraceTreeInteractive = useMemo(
-    // Standard-mode terminals keep scrollback visible, and repeated arrow-key
-    // redraws in that mode can corrupt the screen on some terminals. Keep the
-    // trace tree read-only there while preserving step actions.
-    () => isAlternateBuffer && isStepInteractionActive,
-    [isAlternateBuffer, isStepInteractionActive],
+    () =>
+      isMainContentFocused &&
+      (
+        isAlternateBuffer ||
+        uiState.streamingState !== StreamingState.Idle ||
+        uiState.stepMode ||
+        !uiState.isInputActive
+      ),
+    [
+      isMainContentFocused,
+      isAlternateBuffer,
+      uiState.streamingState,
+      uiState.stepMode,
+      uiState.isInputActive,
+    ],
   );
 
   // Split pendingItems into two parts:
@@ -776,10 +540,13 @@ export const MainContent = () => {
             i === 0
               ? history.at(-1)?.type
               : pendingTraceHistory[i - 1]?.type;
+          const previousItem =
+            i === 0 ? history.at(-1) : pendingTraceHistory[i - 1];
           const isFirstThinking =
             item.type === 'thinking' && prevType !== 'thinking';
           const isFirstAfterThinking =
             item.type !== 'thinking' && prevType === 'thinking';
+          const hasLeadingSpacing = shouldAddLeadingSpacing(previousItem, item);
 
           return (
             <HistoryItemDisplay
@@ -793,10 +560,11 @@ export const MainContent = () => {
               isExpandable={true}
               isFirstThinking={isFirstThinking}
               isFirstAfterThinking={isFirstAfterThinking}
+              hasLeadingSpacing={hasLeadingSpacing}
             />
           );
         })}
-        {showConfirmationQueue && confirmingTool && (
+        {!uiState.stepMode && showConfirmationQueue && confirmingTool && (
           <ToolConfirmationQueue confirmingTool={confirmingTool} />
         )}
       </>
@@ -804,6 +572,7 @@ export const MainContent = () => {
     [
       pendingTraceHistory,
       uiState.constrainHeight,
+      uiState.stepMode,
       staticAreaMaxItemHeight,
       mainAreaWidth,
       showConfirmationQueue,
@@ -819,7 +588,8 @@ export const MainContent = () => {
         <MemoizedTraceSection
           isTraceActive={isTraceActive}
           visibleTraceNodes={visibleTraceNodes}
-          isStepInteractionActive={isTraceTreeInteractive}
+          isTraceTreeInteractive={isTraceTreeInteractive}
+          isStepInteractionActive={isStepInteractionActive}
           isMainContentFocused={isMainContentFocused}
           traceVerbosity={traceVerbosity}
           stepMode={!!uiState.stepMode}
@@ -828,6 +598,7 @@ export const MainContent = () => {
           confirm={confirm}
           cancel={cancel}
           setStepMode={setStepMode}
+          detailView={traceDetailView}
         />
       </Box>
     ),
@@ -836,6 +607,7 @@ export const MainContent = () => {
       isTraceActive,
       visibleTraceNodes,
       isTraceTreeInteractive,
+      isStepInteractionActive,
       isMainContentFocused,
       traceVerbosity,
       uiState.stepMode,
@@ -844,6 +616,7 @@ export const MainContent = () => {
       confirm,
       cancel,
       setStepMode,
+      traceDetailView,
     ],
   );
 
@@ -851,12 +624,19 @@ export const MainContent = () => {
     () => [
       { type: 'header' as const },
       ...augmentedHistory.map(
-        ({ item, isExpandable, isFirstThinking, isFirstAfterThinking }) => ({
+        ({
+          item,
+          isExpandable,
+          isFirstThinking,
+          isFirstAfterThinking,
+          hasLeadingSpacing,
+        }) => ({
           type: 'history' as const,
           item,
           isExpandable,
           isFirstThinking,
           isFirstAfterThinking,
+          hasLeadingSpacing,
         }),
       ),
       { type: 'pending' as const },
@@ -891,6 +671,7 @@ export const MainContent = () => {
             isExpandable={item.isExpandable}
             isFirstThinking={item.isFirstThinking}
             isFirstAfterThinking={item.isFirstAfterThinking}
+            hasLeadingSpacing={item.hasLeadingSpacing}
           />
         );
       } else {
@@ -931,7 +712,7 @@ export const MainContent = () => {
   return (
     <>
       <Static
-        key={historyViewRemountKey}
+        key={uiState.historyRemountKey}
         items={[
           <AppHeader key="app-header" version={version} />,
           ...staticHistoryItems,
@@ -944,3 +725,10 @@ export const MainContent = () => {
     </>
   );
 };
+
+
+
+
+
+
+

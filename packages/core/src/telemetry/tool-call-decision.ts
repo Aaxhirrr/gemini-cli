@@ -25,6 +25,7 @@ export function getDecisionFromOutcome(
       return ToolCallDecision.AUTO_ACCEPT;
     case ToolConfirmationOutcome.ModifyWithEditor:
       return ToolCallDecision.MODIFY;
+    case ToolConfirmationOutcome.Skip:
     case ToolConfirmationOutcome.Cancel:
     default:
       return ToolCallDecision.REJECT;

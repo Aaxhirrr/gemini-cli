@@ -110,6 +110,10 @@ export class Scheduler {
   private isCancelling = false;
   private readonly requestQueue: SchedulerQueueItem[] = [];
 
+  private isStepModeEnabled(): boolean {
+    return process.env['GEMINI_STEP_MODE'] === 'true';
+  }
+
   constructor(options: SchedulerOptions) {
     this.context = options.context;
     this.config = this.context.config;
@@ -522,6 +526,10 @@ export class Scheduler {
   }
 
   private _isParallelizable(request: ToolCallRequestInfo): boolean {
+    if (this.isStepModeEnabled()) {
+      return false;
+    }
+
     if (request.args) {
       const wait = request.args['wait_for_previous'];
       if (typeof wait === 'boolean') {
@@ -570,6 +578,8 @@ export class Scheduler {
     signal: AbortSignal,
   ): Promise<void> {
     const callId = toolCall.request.callId;
+    const forceStepApproval =
+      this.isStepModeEnabled() && !toolCall.request.isClientInitiated;
 
     // Policy & Security
     const { decision, rule } = await checkPolicy(
@@ -600,7 +610,7 @@ export class Scheduler {
     let outcome = ToolConfirmationOutcome.ProceedOnce;
     let lastDetails: SerializableConfirmationDetails | undefined;
 
-    if (decision === PolicyDecision.ASK_USER) {
+    if (decision === PolicyDecision.ASK_USER || forceStepApproval) {
       const result = await resolveConfirmation(toolCall, signal, {
         config: this.config,
         messageBus: this.messageBus,
@@ -609,6 +619,7 @@ export class Scheduler {
         getPreferredEditor: this.getPreferredEditor,
         schedulerId: this.schedulerId,
         onWaitingForConfirmation: this.onWaitingForConfirmation,
+        forceConfirmation: forceStepApproval,
       });
       outcome = result.outcome;
       lastDetails = result.lastDetails;
@@ -625,6 +636,15 @@ export class Scheduler {
         this.context,
         toolCall.invocation,
       );
+    }
+
+    if (outcome === ToolConfirmationOutcome.Skip) {
+      this.state.updateStatus(
+        callId,
+        CoreToolCallStatus.Cancelled,
+        'User skipped execution in step mode.',
+      );
+      return; // Skip execution, continue with the remaining queue
     }
 
     // Handle cancellation (cascades to entire batch)

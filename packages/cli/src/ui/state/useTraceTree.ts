@@ -10,7 +10,13 @@ import type {
   HistoryItemWithoutId,
   IndividualToolCallDisplay,
 } from '../types.js';
-import { CoreToolCallStatus, ROOT_SCHEDULER_ID } from '@google/gemini-cli-core';
+import {
+  CoreToolCallStatus,
+  ROOT_SCHEDULER_ID,
+  type SerializableConfirmationDetails,
+  type Kind,
+  type ApprovalMode,
+} from '@google/gemini-cli-core';
 
 export type TraceNodeType = 'task' | 'tool' | 'decision' | 'subagent';
 
@@ -33,10 +39,20 @@ export interface TraceNode {
   // Content
   inputPreview?: string;
   resultDisplay?: unknown;
+  renderOutputAsMarkdown?: boolean;
+  confirmationDetails?: SerializableConfirmationDetails;
 
   // Execution constraints
   isConfirming?: boolean;
   isClientInitiated?: boolean;
+  kind?: Kind;
+  ptyId?: number;
+  outputFile?: string;
+  correlationId?: string;
+  approvalMode?: ApprovalMode;
+  progressMessage?: string;
+  progress?: number;
+  progressTotal?: number;
 
   // Failure path UX
   retryCount?: number;
@@ -239,9 +255,19 @@ function syncSnapshotReducer(
       existing.errorMessage = call.errorMessage;
       existing.errorType = call.errorType;
       existing.resultDisplay = call.resultDisplay;
+      existing.renderOutputAsMarkdown = call.renderOutputAsMarkdown;
+      existing.confirmationDetails = call.confirmationDetails;
       existing.isConfirming =
         call.status === CoreToolCallStatus.AwaitingApproval;
       existing.isClientInitiated = call.isClientInitiated;
+      existing.kind = call.kind;
+      existing.ptyId = call.ptyId;
+      existing.outputFile = call.outputFile;
+      existing.correlationId = call.correlationId;
+      existing.approvalMode = call.approvalMode;
+      existing.progressMessage = call.progressMessage;
+      existing.progress = call.progress;
+      existing.progressTotal = call.progressTotal;
       existing.children = [];
     } else {
       nextNodeMap.set(call.callId, {
@@ -260,8 +286,18 @@ function syncSnapshotReducer(
         errorMessage: call.errorMessage,
         errorType: call.errorType,
         resultDisplay: call.resultDisplay,
+        renderOutputAsMarkdown: call.renderOutputAsMarkdown,
+        confirmationDetails: call.confirmationDetails,
         isConfirming: call.status === CoreToolCallStatus.AwaitingApproval,
         isClientInitiated: call.isClientInitiated,
+        kind: call.kind,
+        ptyId: call.ptyId,
+        outputFile: call.outputFile,
+        correlationId: call.correlationId,
+        approvalMode: call.approvalMode,
+        progressMessage: call.progressMessage,
+        progress: call.progress,
+        progressTotal: call.progressTotal,
         children: [],
       });
       nextOrderMap.set(call.callId, nextOrder);
@@ -326,8 +362,17 @@ function syncSnapshotReducer(
       existing.errorMessage = undefined;
       existing.errorType = undefined;
       existing.resultDisplay = undefined;
+      existing.confirmationDetails = undefined;
       existing.isConfirming = status === CoreToolCallStatus.AwaitingApproval;
       existing.isClientInitiated = false;
+      existing.kind = undefined;
+      existing.ptyId = undefined;
+      existing.outputFile = undefined;
+      existing.correlationId = undefined;
+      existing.approvalMode = undefined;
+      existing.progressMessage = undefined;
+      existing.progress = undefined;
+      existing.progressTotal = undefined;
       existing.children = [];
     } else {
       nextNodeMap.set(snapshot.id, {

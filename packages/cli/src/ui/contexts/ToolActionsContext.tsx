@@ -126,7 +126,10 @@ export const ToolActionsProvider: React.FC<ToolActionsProviderProps> = (
         'filePath' in details // Check for safety
       ) {
         const cliOutcome =
-          outcome === ToolConfirmationOutcome.Cancel ? 'rejected' : 'accepted';
+          outcome === ToolConfirmationOutcome.Cancel ||
+          outcome === ToolConfirmationOutcome.Skip
+            ? 'rejected'
+            : 'accepted';
         await ideClient?.resolveDiffFromCli(details.filePath, cliOutcome);
       }
 
@@ -135,7 +138,9 @@ export const ToolActionsProvider: React.FC<ToolActionsProviderProps> = (
         await config.getMessageBus().publish({
           type: MessageBusType.TOOL_CONFIRMATION_RESPONSE,
           correlationId: tool.correlationId,
-          confirmed: outcome !== ToolConfirmationOutcome.Cancel,
+          confirmed:
+            outcome !== ToolConfirmationOutcome.Cancel &&
+            outcome !== ToolConfirmationOutcome.Skip,
           requiresUserConfirmation: false,
           outcome,
           payload,

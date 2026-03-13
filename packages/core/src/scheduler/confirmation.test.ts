@@ -132,6 +132,8 @@ describe('confirmation.ts', () => {
       } as unknown as Mocked<AnyToolInvocation>;
 
       toolMock = {
+        name: 'tool',
+        displayName: 'Tool',
         build: vi.fn(),
       } as unknown as Mocked<AnyDeclarativeTool>;
 
@@ -173,6 +175,50 @@ describe('confirmation.ts', () => {
         expect.anything(),
         'awaiting_approval',
         expect.anything(),
+      );
+    });
+
+    it('should force a generic confirmation screen in step mode even when the tool would auto-allow', async () => {
+      invocationMock.shouldConfirmExecute.mockResolvedValue(false);
+      invocationMock.getDescription = vi
+        .fn()
+        .mockReturnValue('Read packages/cli/src/config/config.ts');
+      const typedTool = toolMock as unknown as {
+        name: string;
+        displayName: string;
+      };
+      typedTool.name = 'read_file';
+      typedTool.displayName = 'ReadFile';
+
+      const promise = resolveConfirmation(toolCall, signal, {
+        config: mockConfig,
+        messageBus: mockMessageBus,
+        state: mockState,
+        modifier: mockModifier,
+        getPreferredEditor,
+        schedulerId: ROOT_SCHEDULER_ID,
+        forceConfirmation: true,
+      });
+      await new Promise((resolve) => setImmediate(resolve));
+
+      emitResponse({
+        type: MessageBusType.TOOL_CONFIRMATION_RESPONSE,
+        correlationId: '123e4567-e89b-12d3-a456-426614174000',
+        confirmed: true,
+      });
+
+      const result = await promise;
+      expect(result.outcome).toBe(ToolConfirmationOutcome.ProceedOnce);
+      expect(mockState.updateStatus).toHaveBeenCalledWith(
+        'call-1',
+        'awaiting_approval',
+        expect.objectContaining({
+          confirmationDetails: {
+            type: 'info',
+            title: 'Confirm: ReadFile',
+            prompt: 'Read packages/cli/src/config/config.ts',
+          },
+        }),
       );
     });
 
