@@ -686,6 +686,48 @@ describe('loadCliConfig', () => {
     vi.restoreAllMocks();
   });
 
+  it('sets GEMINI_STEP_MODE=true when --step is provided', async () => {
+    process.argv = ['node', 'script.js', '--step'];
+    const argv = await parseArguments(createTestMergedSettings());
+    const settings = createTestMergedSettings();
+
+    await loadCliConfig(settings, 'test-session', argv);
+
+    expect(process.env['GEMINI_STEP_MODE']).toBe('true');
+  });
+
+  it('resets GEMINI_STEP_MODE to false when --step is not provided', async () => {
+    vi.stubEnv('GEMINI_STEP_MODE', 'true');
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments(createTestMergedSettings());
+    const settings = createTestMergedSettings();
+
+    await loadCliConfig(settings, 'test-session', argv);
+
+    expect(process.env['GEMINI_STEP_MODE']).toBe('false');
+  });
+
+  it('sets GEMINI_TRACE_VERBOSITY when --trace-verbosity is provided', async () => {
+    process.argv = ['node', 'script.js', '--trace-verbosity', 'debug'];
+    const argv = await parseArguments(createTestMergedSettings());
+    const settings = createTestMergedSettings();
+
+    await loadCliConfig(settings, 'test-session', argv);
+
+    expect(process.env['GEMINI_TRACE_VERBOSITY']).toBe('debug');
+  });
+
+  it('clears GEMINI_TRACE_VERBOSITY when --trace-verbosity is not provided', async () => {
+    vi.stubEnv('GEMINI_TRACE_VERBOSITY', 'verbose');
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments(createTestMergedSettings());
+    const settings = createTestMergedSettings();
+
+    await loadCliConfig(settings, 'test-session', argv);
+
+    expect(process.env['GEMINI_TRACE_VERBOSITY']).toBeUndefined();
+  });
+
   describe('Proxy configuration', () => {
     const originalProxyEnv: { [key: string]: string | undefined } = {};
     const proxyEnvVars = [

@@ -3800,6 +3800,32 @@ describe('AppContainer State Management', () => {
     );
   });
 
+  describe('Step Mode State', () => {
+    it('updates stepMode when setStepMode is called', async () => {
+      let unmount: () => void;
+
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
+
+      await waitFor(() => expect(capturedUIState).toBeTruthy());
+
+      const initialStepMode = capturedUIState.stepMode;
+      act(() => {
+        capturedUIActions.setStepMode(!initialStepMode);
+      });
+      expect(capturedUIState.stepMode).toBe(!initialStepMode);
+
+      act(() => {
+        capturedUIActions.setStepMode(initialStepMode);
+      });
+      expect(capturedUIState.stepMode).toBe(initialStepMode);
+
+      unmount!();
+    });
+  });
+
   describe('Plan Mode Availability', () => {
     it('should allow plan mode when enabled and idle', async () => {
       vi.spyOn(mockConfig, 'isPlanEnabled').mockReturnValue(true);

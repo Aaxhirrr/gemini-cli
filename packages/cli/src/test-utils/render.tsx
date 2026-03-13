@@ -637,6 +637,7 @@ const mockUIActions: UIActions = {
   handleNewAgentsSelect: vi.fn(),
   getPreferredEditor: vi.fn(),
   clearAccountSuspension: vi.fn(),
+  setStepMode: vi.fn(),
 };
 
 let capturedOverflowState: OverflowState | undefined;

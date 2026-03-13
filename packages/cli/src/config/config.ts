@@ -95,6 +95,8 @@ export interface CliArgs {
   outputFormat: string | undefined;
   fakeResponses: string | undefined;
   recordResponses: string | undefined;
+  step: boolean | undefined;
+  traceVerbosity?: string | undefined;
   startupMessages?: string[];
   rawOutput: boolean | undefined;
   acceptRawOutputRisk: boolean | undefined;
@@ -178,6 +180,18 @@ export async function parseArguments(
           choices: ['default', 'auto_edit', 'yolo', 'plan'],
           description:
             'Set the approval mode: default (prompt for approval), auto_edit (auto-approve edit tools), yolo (auto-approve all tools), plan (read-only mode)',
+        })
+        .option('step', {
+          type: 'boolean',
+          description: 'Enable step-through mode to interactively pause before execution of tools',
+          default: false,
+        })
+        .option('trace-verbosity', {
+          type: 'string',
+          nargs: 1,
+          choices: ['quiet', 'standard', 'verbose', 'debug'],
+          description:
+            'Set trace verbosity: quiet, standard, verbose, or debug.',
         })
         .option('policy', {
           type: 'array',
@@ -429,6 +443,12 @@ export async function loadCliConfig(
   options: LoadCliConfigOptions = {},
 ): Promise<Config> {
   const { cwd = process.cwd(), projectHooks } = options;
+  process.env['GEMINI_STEP_MODE'] = argv.step ? 'true' : 'false';
+  if (argv.traceVerbosity) {
+    process.env['GEMINI_TRACE_VERBOSITY'] = argv.traceVerbosity;
+  } else {
+    delete process.env['GEMINI_TRACE_VERBOSITY'];
+  }
   const debugMode = isDebugMode(argv);
 
   const loadedSettings = loadSettings(cwd);

@@ -86,6 +86,7 @@ import { type UseHistoryManagerReturn } from '../hooks/useHistoryManager.js';
 import { type RestartReason } from '../hooks/useIdeTrustListener.js';
 import type { TerminalBackgroundColor } from '../utils/terminalCapabilityManager.js';
 import type { BackgroundShell } from '../hooks/shellCommandProcessor.js';
+import type { TrackedToolCall } from '../hooks/useToolScheduler.js';
 
 export interface QuotaState {
   userTier: UserTierId | undefined;
@@ -185,6 +186,7 @@ export interface UIState {
   staticExtraHeight: number;
   dialogsVisible: boolean;
   pendingHistoryItems: HistoryItemWithoutId[];
+  pendingToolCalls?: TrackedToolCall[];
   nightly: boolean;
   branchName: string | undefined;
   sessionStats: SessionStatsState;
@@ -227,6 +229,7 @@ export interface UIState {
     text: string;
     type: TransientMessageType;
   } | null;
+  stepMode: boolean;
 }
 
 export const UIStateContext = createContext<UIState | null>(null);

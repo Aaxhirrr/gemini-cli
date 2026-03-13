@@ -100,10 +100,17 @@ export interface ToolCallEvent {
 export interface IndividualToolCallDisplay {
   callId: string;
   parentCallId?: string;
+  schedulerId?: string;
   name: string;
   description: string;
   resultDisplay: ToolResultDisplay | undefined;
   status: CoreToolCallStatus;
+  startTime?: number;
+  endTime?: number;
+  durationMs?: number;
+  errorName?: string;
+  errorMessage?: string;
+  errorType?: string;
   // True when the tool was initiated directly by the user (slash/@/shell flows).
   isClientInitiated?: boolean;
   kind?: Kind;

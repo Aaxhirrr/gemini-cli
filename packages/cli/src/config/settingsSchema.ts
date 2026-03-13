@@ -759,6 +759,22 @@ const SETTINGS_SCHEMA = {
           { value: 'full', label: 'Full' },
         ],
       },
+      traceVerbosity: {
+        type: 'enum',
+        label: 'Trace Verbosity',
+        category: 'UI',
+        requiresRestart: false,
+        default: 'standard',
+        description:
+          'Controls trace detail level: quiet (final states), standard (active steps + key outcomes), verbose (full trace), debug (full trace + internals).',
+        showInDialog: true,
+        options: [
+          { value: 'quiet', label: 'Quiet' },
+          { value: 'standard', label: 'Standard' },
+          { value: 'verbose', label: 'Verbose' },
+          { value: 'debug', label: 'Debug' },
+        ],
+      },
       customWittyPhrases: {
         type: 'array',
         label: 'Custom Witty Phrases',

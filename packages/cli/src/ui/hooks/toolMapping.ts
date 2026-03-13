@@ -49,9 +49,13 @@ export function mapToDisplay(
     const baseDisplayProperties = {
       callId: call.request.callId,
       parentCallId: call.request.parentCallId,
+      schedulerId: call.schedulerId,
       name: displayName,
       description,
       renderOutputAsMarkdown,
+      startTime: call.startTime,
+      endTime: 'endTime' in call ? call.endTime : undefined,
+      durationMs: 'durationMs' in call ? call.durationMs : undefined,
     };
 
     let resultDisplay: ToolResultDisplay | undefined = undefined;
@@ -63,6 +67,9 @@ export function mapToDisplay(
     let progressMessage: string | undefined = undefined;
     let progress: number | undefined = undefined;
     let progressTotal: number | undefined = undefined;
+    let errorName: string | undefined = undefined;
+    let errorMessage: string | undefined = undefined;
+    let errorType: string | undefined = undefined;
 
     switch (call.status) {
       case CoreToolCallStatus.Success:
@@ -72,6 +79,9 @@ export function mapToDisplay(
       case CoreToolCallStatus.Error:
       case CoreToolCallStatus.Cancelled:
         resultDisplay = call.response.resultDisplay;
+        errorName = call.response.error?.name;
+        errorMessage = call.response.error?.message;
+        errorType = call.response.errorType;
         break;
       case CoreToolCallStatus.AwaitingApproval:
         correlationId = call.correlationId;
@@ -112,6 +122,9 @@ export function mapToDisplay(
       progressMessage,
       progress,
       progressTotal,
+      errorName,
+      errorMessage,
+      errorType,
       approvalMode: call.approvalMode,
       originalRequestName: call.request.originalRequestName,
     };

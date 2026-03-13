@@ -142,6 +142,34 @@ export async function startInteractiveUI(
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
+  // Debounce 'resize' events at the stdout level so that ALL listeners
+  // (including Ink's internal layouter which has NO debounce) see at most
+  // one event per 150 ms.  Without this, dragging a window edge fires
+  // dozens of resize events per second, each triggering a full Ink
+  // re-render.  In non-alternate-buffer mode the rapid re-renders corrupt
+  // the terminal output because Ink miscalculates cursor positions when
+  // static content wraps at intermediate widths.
+  const RESIZE_DEBOUNCE_MS = 150;
+  let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+  const origEmit = inkStdout.emit.bind(inkStdout);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (inkStdout as any).emit = function (event: string, ...args: unknown[]) {
+    if (event === 'resize') {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        resizeTimer = null;
+        origEmit(event, ...args);
+      }, RESIZE_DEBOUNCE_MS);
+      return true;
+    }
+    return origEmit(event, ...args);
+  };
+  registerCleanup(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (inkStdout as any).emit = origEmit;
+    if (resizeTimer) clearTimeout(resizeTimer);
+  });
+
   const instance = render(
     process.env['DEBUG'] ? (
       <React.StrictMode>

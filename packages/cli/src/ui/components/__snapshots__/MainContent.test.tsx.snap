@@ -108,7 +108,7 @@ exports[`MainContent > renders mixed history items (user + gemini) with single l
 "ScrollableList
 AppHeader(full)
 ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
- > User message                                                                                     
+ > User message
 ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
 ✦ Gemini response
   Gemini response
@@ -154,41 +154,22 @@ exports[`MainContent > renders multiple thinking messages sequentially correctly
 "ScrollableList
 AppHeader(full)
 ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
- > Plan a solution                                                                                  
+ > Plan a solution
 ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
- Thinking... 
+ Thinking...
  │
  │ Initial analysis
  │ This is a multiple line paragraph for the first thinking message of how the model analyzes the
  │ problem.
+
  │
  │ Planning execution
  │ This a second multiple line paragraph for the second thinking message explaining the plan in
  │ detail so that it wraps around the terminal display.
+
  │
  │ Refining approach
  │ And finally a third multiple line paragraph for the third thinking message to refine the
  │ solution.
 "
-`;
-
-exports[`MainContent > renders multiple thinking messages sequentially correctly 2`] = `
-"ScrollableList
-AppHeader(full)
-▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
- > Plan a solution                                                                                  
-▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
- Thinking... 
- │
- │ Initial analysis
- │ This is a multiple line paragraph for the first thinking message of how the model analyzes the
- │ problem.
- │
- │ Planning execution
- │ This a second multiple line paragraph for the second thinking message explaining the plan in
- │ detail so that it wraps around the terminal display.
- │
- │ Refining approach
- │ And finally a third multiple line paragraph for the third thinking message to refine the
- │ solution."
 `;

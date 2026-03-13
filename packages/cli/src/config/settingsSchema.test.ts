@@ -104,6 +104,19 @@ describe('SettingsSchema', () => {
       expect(definition?.options?.map((o) => o.value)).toEqual(['low', 'full']);
     });
 
+    it('should have traceVerbosity enum property', () => {
+      const definition = getSettingsSchema().ui?.properties?.traceVerbosity;
+      expect(definition).toBeDefined();
+      expect(definition?.type).toBe('enum');
+      expect(definition?.default).toBe('standard');
+      expect(definition?.options?.map((o) => o.value)).toEqual([
+        'quiet',
+        'standard',
+        'verbose',
+        'debug',
+      ]);
+    });
+
     it('should have checkpointing nested properties', () => {
       expect(
         getSettingsSchema().general?.properties?.checkpointing.properties

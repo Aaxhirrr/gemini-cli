@@ -106,7 +106,6 @@ import { useConsoleMessages } from './hooks/useConsoleMessages.js';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { calculatePromptWidths } from './components/InputPrompt.js';
 import { calculateMainAreaWidth } from './utils/ui-sizing.js';
-import ansiEscapes from 'ansi-escapes';
 import { basename } from 'node:path';
 import { computeTerminalTitle } from '../utils/windowTitle.js';
 import { useTextBuffer } from './components/shared/text-buffer.js';
@@ -219,6 +218,7 @@ const SHELL_WIDTH_FRACTION = 0.89;
  * for the shell. This provides vertical padding and space for other UI elements.
  */
 const SHELL_HEIGHT_PADDING = 10;
+const MIN_WIDTH_DELTA_FOR_STATIC_REFRESH = 2;
 
 export const AppContainer = (props: AppContainerProps) => {
   const isHelpDismissKey = useIsHelpDismissKey();
@@ -246,6 +246,7 @@ export const AppContainer = (props: AppContainerProps) => {
   );
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [embeddedShellFocused, setEmbeddedShellFocused] = useState(false);
+  const [stepModeOverride, setStepModeOverride] = useState<boolean | null>(null);
   const [showDebugProfiler, setShowDebugProfiler] = useState(false);
   const [customDialog, setCustomDialog] = useState<React.ReactNode | null>(
     null,
@@ -602,7 +603,11 @@ export const AppContainer = (props: AppContainerProps) => {
 
   const refreshStatic = useCallback(() => {
     if (!isAlternateBuffer) {
-      stdout.write(ansiEscapes.clearTerminal);
+      // Clear screen (\x1b[2J), clear scrollback (\x1b[3J), move cursor home (\x1b[H).
+      // The scrollback clear prevents content duplication on resize — without it
+      // the old content is pushed into scrollback and Static re-renders all items,
+      // producing duplicate copies visible when the user scrolls up.
+      stdout.write('\x1b[2J\x1b[3J\x1b[H');
     }
     setHistoryRemountKey((prev) => prev + 1);
   }, [setHistoryRemountKey, isAlternateBuffer, stdout]);
@@ -1388,6 +1393,11 @@ Logging in with Google... Restarting Gemini CLI to continue.
    * - Tool confirmations (WaitingForConfirmation state)
    * - Any future streaming states not explicitly allowed
    */
+  const hasPendingToolApproval = isToolAwaitingConfirmation([
+    ...pendingSlashCommandHistoryItems,
+    ...pendingGeminiHistoryItems,
+  ]);
+
   const isInputActive =
     isConfigInitialized &&
     !initError &&
@@ -1396,6 +1406,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
     !!slashCommands &&
     (streamingState === StreamingState.Idle ||
       streamingState === StreamingState.Responding) &&
+    !hasPendingToolApproval &&
     !proQuotaRequest;
 
   const [controlsHeight, setControlsHeight] = useState(0);
@@ -1544,7 +1555,21 @@ Logging in with Google... Restarting Gemini CLI to continue.
     needsRestart: ideNeedsRestart,
     restartReason: ideTrustRestartReason,
   } = useIdeTrustListener();
-  const isInitialMount = useRef(true);
+  const isInitialResizeMount = useRef(true);
+  const hasDeferredResizeRefresh = useRef(false);
+  const lastResizeWidth = useRef<number | null>(null);
+
+  const hasActiveToolExecution = pendingToolCalls.some(
+    (tool) =>
+      tool.status === CoreToolCallStatus.Executing ||
+      tool.status === CoreToolCallStatus.Scheduled ||
+      tool.status === CoreToolCallStatus.Validating ||
+      tool.status === CoreToolCallStatus.AwaitingApproval,
+  );
+
+  // Defer expensive static remounts during any non-idle turn activity.
+  const shouldDeferResizeRefresh =
+    streamingState !== StreamingState.Idle || hasActiveToolExecution;
 
   useIncludeDirsTrust(config, isTrustedFolder, historyManager, setCustomDialog);
 
@@ -1611,19 +1636,63 @@ Logging in with Google... Restarting Gemini CLI to continue.
   }, [ideNeedsRestart]);
 
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
+    if (isInitialResizeMount.current) {
+      isInitialResizeMount.current = false;
+      lastResizeWidth.current = terminalWidth;
       return;
     }
 
+    if (isAlternateBuffer) {
+      return;
+    }
+
+    const previousWidth = lastResizeWidth.current;
+    lastResizeWidth.current = terminalWidth;
+
+    const widthDelta =
+      previousWidth === null
+        ? Number.MAX_SAFE_INTEGER
+        : Math.abs(previousWidth - terminalWidth);
+
+    // Height-only and tiny width-jitter changes do not require static remount.
+    if (widthDelta < MIN_WIDTH_DELTA_FOR_STATIC_REFRESH) {
+      return;
+    }
+
+    // Avoid expensive static remounts while the agent is actively streaming.
+    if (shouldDeferResizeRefresh) {
+      hasDeferredResizeRefresh.current = true;
+      return;
+    }
+
+    hasDeferredResizeRefresh.current = false;
     const handler = setTimeout(() => {
       refreshStatic();
-    }, 300);
+    }, 200);
 
     return () => {
       clearTimeout(handler);
     };
-  }, [terminalWidth, refreshStatic]);
+  }, [terminalWidth, isAlternateBuffer, shouldDeferResizeRefresh, refreshStatic]);
+
+  useEffect(() => {
+    if (isAlternateBuffer || shouldDeferResizeRefresh) {
+      return;
+    }
+
+    if (!hasDeferredResizeRefresh.current) {
+      return;
+    }
+
+    hasDeferredResizeRefresh.current = false;
+    const handler = setTimeout(() => {
+      refreshStatic();
+    }, 200);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [isAlternateBuffer, shouldDeferResizeRefresh, refreshStatic]);
 
   useEffect(() => {
     const unsubscribe = ideContextStore.subscribe(setIdeContextState);
@@ -2269,6 +2338,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       staticExtraHeight,
       dialogsVisible,
       pendingHistoryItems,
+      pendingToolCalls,
       nightly,
       branchName,
       sessionStats,
@@ -2308,6 +2378,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
           ...pendingGeminiHistoryItems,
         ]),
       hintBuffer: '',
+      stepMode: stepModeOverride ?? process.env['GEMINI_STEP_MODE'] === 'true',
     }),
     [
       isThemeDialogOpen,
@@ -2393,6 +2464,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       staticExtraHeight,
       dialogsVisible,
       pendingHistoryItems,
+      pendingToolCalls,
       nightly,
       branchName,
       sessionStats,
@@ -2429,6 +2501,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       adminSettingsChanged,
       newAgents,
       showIsExpandableHint,
+      stepModeOverride,
     ],
   );
 
@@ -2528,6 +2601,9 @@ Logging in with Google... Restarting Gemini CLI to continue.
       clearAccountSuspension: () => {
         setAccountSuspensionInfo(null);
         setAuthState(AuthState.Updating);
+      },
+      setStepMode: (enabled: boolean) => {
+        setStepModeOverride(enabled);
       },
     }),
     [
