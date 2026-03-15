@@ -1,91 +1,76 @@
-# GSoC 2026 Branch README: Interactive Progress Visualization and Task Stepping
+# GSoC 2026 PoC Branch: Interactive Progress Visualization & Task Stepping
 
 Branch: `gsoc6-progress-20260312`
 
-This branch packages the work done for the GSoC 2026 proposal around Idea 6,
-`Interactive Progress Visualization & Task Stepping`.
+I built this branch as a proof-of-concept for **GSoC 2026 Idea 6: Interactive
+Progress Visualization & Task Stepping** in Gemini CLI.
 
-The goal of this work is to make Gemini CLI runs feel less like a black box and
-more like a debugger-style execution experience inside the Ink terminal UI. The
-branch adds a live task tree, step-through approvals, an opt-in inspector for
-richer node details, clearer nested failure handling, and user-configurable
-trace verbosity controls.
+My goal here was not to present a finished product. The goal was to take the
+idea seriously enough to prototype it inside the real Gemini CLI codebase,
+validate the interaction model in the existing Ink UI, and show what this
+direction could look like if it were developed further through GSoC.
 
-## Why This Branch Exists
+At a high level, I wanted to make Gemini CLI runs feel less like a black box and
+more like a debugger-style terminal experience. In this branch, I focused on
+making execution easier to follow, easier to inspect, and easier to control.
 
-The original problem statement for Idea 6 is straightforward: complex multi-step
-agent runs are hard to follow in the terminal. Users often see the final answer,
-but not the structure of the work that produced it. This branch explores a more
-transparent terminal UX where users can:
+## What This Prototype Demonstrates
 
-- see the execution hierarchy while a task is still running
-- step through approvals with full context
-- inspect individual nodes instead of reading disconnected logs
-- understand nested failures in-place
-- tune trace density depending on what they want to inspect
+This branch is my attempt to cover the five expected outcomes from the project
+idea in a concrete, runnable way:
 
-This is a proposal branch, not an upstream-ready product branch. The emphasis
-here is on demonstrating the UX direction, validating the interaction model, and
-showing a realistic implementation path in the existing codebase.
+- **Real-time task tree visualization** The CLI renders a live execution tree
+  while a task is still running instead of showing only a flat stream of tool
+  activity.
 
-## Expected Outcomes Covered
+- **Step-through execution** The user can pause on actions and explicitly
+  continue through the run instead of letting everything happen without
+  intervention.
 
-| Expected outcome                                                               | Status in this branch     | Notes                                                                    |
-| ------------------------------------------------------------------------------ | ------------------------- | ------------------------------------------------------------------------ |
-| Real-time task tree visualization in the Ink TUI                               | Demonstrated in prototype | Live execution tree with task, decision, subagent, and tool hierarchy    |
-| Step-through mode where users approve individual tool calls or agent decisions | Demonstrated in prototype | Keyboard-driven step mode with clearer priority than the trace inspector |
-| Rich-text rendering of tool inputs/outputs with collapsible sections           | Demonstrated in prototype | Inspector-based details with compact and expanded modes                  |
-| Improved error state visualization for nested agent failures                   | Demonstrated in prototype | Failure path stays localized to the correct branch and node              |
-| User-configurable verbosity levels for different task categories               | Demonstrated in prototype | Global verbosity plus per-category overrides and CLI flags               |
+- **Richer node inspection** A selected trace node can expose structured details
+  such as input, output, metadata, and truncated sections through an inspector
+  view.
 
-## Validation Status
+- **Nested failure visibility** Failures stay attached to the branch that owns
+  them so they are easier to understand in context.
 
-The implementation in this branch was validated locally with:
+- **Verbosity controls** The trace can be rendered at different detail levels,
+  including category-specific overrides for different node types.
 
-- focused trace/config UI test suite
-- `npm run typecheck --workspace @google/gemini-cli`
-- `npm run build --workspace @google/gemini-cli`
+I do not want to overstate the maturity of this branch. This is a serious
+prototype, not a finished upstream feature set.
 
-A representative test run used:
+## Screenshots
 
-```bash
-npm run test --workspace @google/gemini-cli -- src/config/config.test.ts src/config/settingsSchema.test.ts src/ui/components/MainContent.traceFocus.test.tsx src/ui/components/trace/TraceTree.test.tsx src/ui/components/trace/StepActionBar.test.tsx src/ui/components/trace/traceVerbosity.test.ts src/ui/components/Composer.test.tsx
-```
+I documented the branch with screenshots because standard scrollback rendering
+still flickers in some terminal environments during heavy live updates. For the
+proposal, screenshots were the clearest and most stable way to show the current
+state of the work.
 
-## Screenshot Overview
-
-For proposal clarity, the branch is documented with screenshots captured from
-the working prototype. A live recording was intentionally not used as the
-primary artifact because standard scrollback rendering still flickers in some
-terminal environments during heavy live updates.
-
-### Demo 1: Real-Time Task Tree Visualization
+### Demo 1: Live Task Tree
 
 ![Demo 1: Live task tree](./docs/assets/gsoc6/demo-1-live-task-tree.png)
 
-Caption: Real-time task tree visualization showing the hierarchy of work as the
-agent executes a multi-step task.
+This shows the execution tree forming while the task is still running.
 
 ### Demo 2: Step-Through Mode
 
 ![Demo 2: Step-through approval](./docs/assets/gsoc6/demo-2-step-through.png)
 
-Caption: Step-through mode pauses execution at an actionable step and lets the
-user explicitly choose how to proceed while keeping the task trace visible.
+This shows the user pausing on an action while the task trace remains visible.
 
-### Demo 3: Inspector and Collapsible Detail Rendering
+### Demo 3: Inspector and Rich Detail Rendering
 
 ![Demo 3: Inspector](./docs/assets/gsoc6/demo-3-inspector.png)
 
-Caption: Inspector view rendering structured details for the selected execution
-node without flooding the main trace.
+This shows the inspector attached to a selected trace node rather than dumping
+details into unrelated terminal output.
 
 ### Demo 4: Nested Failure Visualization
 
 ![Demo 4: Nested failure](./docs/assets/gsoc6/demo-4-nested-failure.png)
 
-Caption: Nested failure localized to the correct branch and node, with
-surrounding task context preserved.
+This shows a failure localized to the correct branch in the execution tree.
 
 ### Demo 5: Verbosity Controls
 
@@ -104,10 +89,9 @@ surrounding task context preserved.
   </tr>
 </table>
 
-Caption: The same task rendered at four global verbosity levels, demonstrating
-progressively richer execution detail.
+This shows the same task rendered at four global verbosity levels.
 
-## How To Run This Branch
+## Running The Branch
 
 From the repository root:
 
@@ -117,34 +101,21 @@ npm run build --workspace @google/gemini-cli
 npm run start -- --help
 ```
 
-Important note: in this local development setup, `gemini --help` may fail if the
-global install points at a missing bundle. For this branch, use
-`npm run start -- ...` commands from the repo root.
-
-### Trace-Related CLI Flags Added or Used In This Branch
-
-```text
---step
---trace-verbosity
---trace-task-verbosity
---trace-decision-verbosity
---trace-subagent-verbosity
---trace-tool-verbosity
---trace-inspector
-```
-
-To inspect the local help output:
+In my local setup, the repository-local command path was the reliable one:
 
 ```bash
-npm run start -- --help
+npm run start -- ...
 ```
+
+A global `gemini` install can fail if it points at a broken or stale bundle, so
+I recommend using the local start command for this branch.
 
 ## Demo Guide
 
-The sections below are the exact commands and prompts used to demonstrate each
-expected outcome.
+I kept the demo guide short on purpose. These are the commands and prompts I
+used to validate each expected outcome.
 
-### Demo 1: Real-Time Task Tree Visualization
+### Demo 1: Live Task Tree
 
 Command:
 
@@ -157,13 +128,6 @@ Prompt:
 ```text
 Explain how config flows from `packages/cli/src/gemini.tsx` to `packages/cli/src/config/config.ts` and then into `packages/core/src/config/config.ts`. Read only what is necessary and do not modify anything.
 ```
-
-What to look for:
-
-- the root task stays visible while the run is active
-- major branches form under the task in real time
-- tool calls appear under the correct branch instead of as an unstructured log
-- status changes are visible while execution is still in progress
 
 ### Demo 2: Step-Through Mode
 
@@ -179,19 +143,12 @@ Prompt:
 Analyze configuration loading in this repo. Trace the CLI path, core config path, and settings schema. Do not modify anything.
 ```
 
-What to look for:
-
-- the run pauses on actionable steps
-- `Action Required` remains visible with the trace tree still on screen
-- `Enter` executes the current step in step mode
-- the trace does not steal the step confirmation keys during the demo
-
-### Demo 3: Inspector and Rich Detail Rendering
+### Demo 3: Inspector
 
 Command:
 
 ```bash
-npm run start -- --trace-verbosity standard --trace-inspector
+npm run start -- --trace-inspector
 ```
 
 Prompt:
@@ -200,20 +157,12 @@ Prompt:
 Analyze configuration loading in this repo. Trace the CLI path, core config path, and settings schema. Do not modify anything.
 ```
 
-What to look for:
-
-- `Up` and `Down` move selection through the trace tree
-- `Enter` opens the inspector for the selected node
-- `Ctrl+O` toggles between compact and expanded inspector detail
-- inputs, outputs, metadata, and hidden-line summaries stay attached to the
-  selected node
-
-### Demo 4: Nested Failure Visualization
+### Demo 4: Nested Failure Path
 
 Command:
 
 ```bash
-npm run start -- --trace-verbosity standard
+npm run start
 ```
 
 Prompt:
@@ -222,16 +171,9 @@ Prompt:
 Analyze configuration loading across this repo. Break the work into three branches: trace the CLI config entrypoints, trace the core config lifecycle, and inspect `packages/core/src/config/definitely-missing.ts` for `class Config`. Use that missing path exactly as written. Do not correct it. Treat that failure as non-fatal and continue the other branches. Do not modify anything.
 ```
 
-What to look for:
+### Demo 5: Verbosity Comparison
 
-- the failure is attached to the exact branch that owns it
-- successful sibling branches remain successful
-- the failure path is readable without a generic catch-all banner
-- the selected failed node can still be inspected after completion
-
-### Demo 5: Verbosity Controls
-
-Global verbosity commands:
+Commands:
 
 ```bash
 npm run start -- --trace-verbosity quiet
@@ -240,173 +182,103 @@ npm run start -- --trace-verbosity verbose
 npm run start -- --trace-verbosity debug
 ```
 
-Suggested prompt:
+Prompt:
 
 ```text
 Trace the configuration startup path from `packages/cli/src/gemini.tsx` into `packages/cli/src/config/config.ts` and `packages/core/src/config/config.ts`. Read only 4-6 essential files, summarize the flow briefly, and do not modify anything.
 ```
 
-Optional category-specific override example:
+If someone wants to explore the CLI flags directly, the local help output
+includes:
 
-```bash
-npm run start -- --trace-verbosity quiet --trace-tool-verbosity verbose
-```
+- `--step`
+- `--trace-verbosity`
+- `--trace-task-verbosity`
+- `--trace-decision-verbosity`
+- `--trace-subagent-verbosity`
+- `--trace-tool-verbosity`
+- `--trace-inspector`
 
-What to look for:
+## What I Changed
 
-- quiet mode keeps the tree compact
-- standard mode shows a balanced default view
-- verbose mode expands execution detail
-- debug mode surfaces the densest internal trace detail
-- category overrides can increase detail for one node type without globally
-  promoting everything else
+Most of the work in this branch sits in the CLI UI layer.
 
-## What Changed In The UI
+The main areas I touched were:
 
-This branch is more than a screenshot layer. It changes how the CLI organizes,
-filters, and interacts with trace data.
+- the presentation layer that turns raw trace data into a more readable task
+  tree
+- keyboard focus handling between approvals, step mode, and trace navigation
+- the inspector flow for selected nodes
+- nested failure visibility in the trace tree
+- global and category-specific verbosity handling in config and rendering
 
-### 1. Presentation Tree Layer
+Key files include:
 
-The raw trace data is transformed into a more readable presentation tree so
-users see meaningful branches instead of a flat series of tool calls.
-
-Key files:
-
-- `packages/cli/src/ui/components/trace/presentationTree.ts`
+- `packages/cli/src/ui/components/MainContent.tsx`
 - `packages/cli/src/ui/components/trace/TraceTree.tsx`
 - `packages/cli/src/ui/components/trace/TraceNodeRow.tsx`
-
-### 2. Keyboard Focus and Step Control
-
-Action-required controls and trace navigation were separated so step mode can
-own `Enter` and approval keys without inspector interference.
-
-Key files:
-
-- `packages/cli/src/ui/components/MainContent.tsx`
-- `packages/cli/src/ui/components/ToolConfirmationQueue.tsx`
-- `packages/cli/src/ui/components/trace/StepActionBar.tsx`
-
-### 3. Inspector and Detail Rendering
-
-A dedicated inspector panel was added for rich node details. For demo clarity,
-the inspector is disabled by default and enabled explicitly with
-`--trace-inspector`.
-
-Key files:
-
-- `packages/cli/src/ui/components/trace/TraceTree.tsx`
-- `packages/cli/src/ui/components/trace/TraceNodeDetails.tsx`
-- `packages/cli/src/ui/components/MainContent.tsx`
-
-### 4. Failure-Oriented Trace Behavior
-
-Trace status propagation and visibility rules were adjusted so nested failures
-remain localized and understandable.
-
-Key files:
-
 - `packages/cli/src/ui/components/trace/traceVerbosity.ts`
-- `packages/cli/src/ui/components/MainContent.tsx`
-- `packages/cli/src/ui/components/trace/TraceTree.tsx`
-
-### 5. Configurable Verbosity
-
-The branch adds both configuration-backed and CLI-backed trace verbosity
-controls, including per-category overrides.
-
-Key files:
-
-- `packages/cli/src/config/settingsSchema.ts`
 - `packages/cli/src/config/config.ts`
-- `packages/cli/src/ui/components/trace/traceVerbosity.ts`
+- `packages/cli/src/config/settingsSchema.ts`
 
-## Limitations and Known Issues
+I also added focused tests around these behaviors so the prototype is not just
+visual, but behaviorally checked.
 
-This branch is intentionally honest about what is still rough.
+## Validation
 
-### 1. Standard Scrollback Flicker Is Not Fully Solved
+I validated the branch locally with focused UI/config tests plus typecheck and
+build.
 
-The biggest remaining issue is terminal flicker in some environments during
-heavy live updates, especially in the lower prompt or status region while the
-trace is actively changing. This is the main reason the proposal package is
-documented with screenshots rather than relying entirely on video.
-
-### 2. Inspector Is Opt-In For Demo Clarity
-
-The inspector is intentionally disabled by default in standard mode for Demo 1
-and Demo 2, and enabled explicitly with `--trace-inspector` for Demo 3. This
-keeps the proposal demos separated by expected outcome, but it is not
-necessarily the final product behavior.
-
-### 3. Presentation Labels Still Use Heuristics
-
-The presentation tree improves readability, but some branch naming is still
-heuristic. That means the system is useful and demonstrable, but not yet a fully
-general semantic summarizer for every possible task wording.
-
-### 4. Global Development Entry Point Is Preferred
-
-In this environment, the repository-local command path is the reliable one:
+Representative test command:
 
 ```bash
-npm run start -- ...
+npm run test --workspace @google/gemini-cli -- src/config/config.test.ts src/config/settingsSchema.test.ts src/ui/components/MainContent.traceFocus.test.tsx src/ui/components/trace/TraceTree.test.tsx src/ui/components/trace/StepActionBar.test.tsx src/ui/components/trace/traceVerbosity.test.ts src/ui/components/Composer.test.tsx
 ```
 
-A broken global `gemini` install can point at a missing bundle and fail even
-when the local branch works correctly.
+I also ran:
 
-### 5. The Branch Is Proposal-Oriented, Not Final Product Polish
+```bash
+npm run typecheck --workspace @google/gemini-cli
+npm run build --workspace @google/gemini-cli
+```
 
-The core interaction model is here and working, but there is still polish work
-left around terminal rendering stability, documentation cleanup, and shaping the
-exact upstream UX defaults.
+## Limitations
 
-## Suggested Follow-Up Work
+I want to be direct about what is still rough.
 
-If this branch were continued beyond the proposal stage, the next priorities
+- **Standard scrollback flicker is not fully solved.** The biggest remaining
+  issue is terminal flicker in some environments during heavy live updates,
+  especially around the lower prompt and status region.
+
+- **The inspector is opt-in for demo clarity.** I kept the inspector disabled by
+  default in the simpler demos so each expected outcome could be shown more
+  clearly. That is a demo choice, not necessarily the final product default.
+
+- **Some presentation labels are still heuristic.** The tree is much more
+  readable than the raw trace, but some branch naming is still driven by
+  heuristics rather than a fully general semantic system.
+
+- **This branch is proposal-oriented.** The interaction model is here, but
+  polish work is still needed around terminal stability, defaults, and
+  documentation.
+
+## If This Continued Beyond The Proposal
+
+If I were continuing this work beyond the proposal stage, my next priorities
 would be:
 
-- isolate and fix the remaining standard scrollback flicker in the lower
-  terminal region
-- harden the presentation tree heuristics and fallback labeling
-- decide the final product default for inspector availability
-- improve documentation for the new trace flags in the public configuration docs
-- reduce visual churn in large live traces and long-running sessions
+- fix the remaining terminal flicker in standard scrollback mode
+- harden the presentation tree naming and fallback behavior
+- refine the final defaults for inspector availability and trace density
+- improve documentation for the new trace flags and settings
+- reduce visual churn in longer or denser live sessions
 
-## Quick Command Reference
+## Closing Note
 
-```bash
-# Local help
-npm run start -- --help
+I built this branch to make the proposal concrete. I wanted to show that the
+idea is not just interesting in theory, but feasible inside the existing Gemini
+CLI codebase and UI model.
 
-# Demo 1
-npm run start -- --trace-verbosity standard
-
-# Demo 2
-npm run start -- --step --trace-verbosity standard
-
-# Demo 3
-npm run start -- --trace-verbosity standard --trace-inspector
-
-# Demo 4
-npm run start -- --trace-verbosity standard
-
-# Demo 5
-npm run start -- --trace-verbosity quiet
-npm run start -- --trace-verbosity standard
-npm run start -- --trace-verbosity verbose
-npm run start -- --trace-verbosity debug
-```
-
-## Final Notes
-
-This branch is meant to make the proposal concrete. It does not just describe
-the five expected outcomes in abstract terms; it prototypes them in the existing
-Gemini CLI UI stack, validates the interaction model with tests, and documents
-the current state with reproducible commands and screenshots.
-
-For proposal review, the screenshots in this document are the cleanest summary
-artifact. For deeper inspection, the branch itself contains the implementation,
-tests, and CLI flags needed to rerun the demos locally.
+For proposal review, the screenshots in this README are the clearest summary
+artifact. For deeper inspection, the branch itself contains the prototype code,
+tests, and runnable demo commands.
