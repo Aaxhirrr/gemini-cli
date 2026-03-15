@@ -14,13 +14,11 @@ import { useKeypress } from '../../hooks/useKeypress.js';
 import type { TraceNode } from '../../state/useTraceTree.js';
 
 const mocks = vi.hoisted(() => ({
-  lastRowProps: null as
-    | {
-        isSelected: boolean;
-        isDetailsExpanded: boolean;
-        showDetailsInline: boolean;
-      }
-    | null,
+  lastRowProps: null as {
+    isSelected: boolean;
+    isDetailsExpanded: boolean;
+    showDetailsInline: boolean;
+  } | null,
   renderedNodeIds: [] as string[],
 }));
 
@@ -180,6 +178,33 @@ describe('TraceTree', () => {
     unmount();
   });
 
+  it('treats Enter as node selection when details are disabled', async () => {
+    const onNodeSelect = vi.fn();
+    const { waitUntilReady, unmount } = render(
+      <TraceTree
+        rootNodes={rootNodes}
+        isActive={true}
+        isFocused={true}
+        detailView="off"
+        onNodeSelect={onNodeSelect}
+      />,
+    );
+
+    await waitUntilReady();
+
+    const handler = mockedUseKeypress.mock.calls[0][0] as (key: {
+      name: string;
+      ctrl?: boolean;
+    }) => boolean | void;
+
+    handler({ name: 'enter' });
+
+    expect(onNodeSelect).toHaveBeenCalledWith(rootNodes[0]);
+    expect(mocks.lastRowProps?.isDetailsExpanded).toBe(false);
+
+    unmount();
+  });
+
   it('uses a separate inspector panel in panel mode instead of expanding rows inline', async () => {
     const { lastFrame, waitUntilReady, unmount } = render(
       <TraceTree
@@ -270,7 +295,11 @@ describe('TraceTree', () => {
     ];
 
     const { waitUntilReady, unmount } = render(
-      <TraceTree rootNodes={nestedRootNodes} isActive={false} isFocused={true} />,
+      <TraceTree
+        rootNodes={nestedRootNodes}
+        isActive={false}
+        isFocused={true}
+      />,
     );
 
     await waitUntilReady();
@@ -283,13 +312,16 @@ describe('TraceTree', () => {
   });
 
   it('shows keyboard viewport affordances when the tree has more rows than fit', async () => {
-    const manyRootNodes: TraceNode[] = Array.from({ length: 20 }, (_, index) => ({
-      id: `tool-${index + 1}`,
-      type: 'tool',
-      name: `tool-${index + 1}`,
-      status: CoreToolCallStatus.Success,
-      children: [],
-    }));
+    const manyRootNodes: TraceNode[] = Array.from(
+      { length: 20 },
+      (_, index) => ({
+        id: `tool-${index + 1}`,
+        type: 'tool',
+        name: `tool-${index + 1}`,
+        status: CoreToolCallStatus.Success,
+        children: [],
+      }),
+    );
 
     const { lastFrame, waitUntilReady, unmount } = render(
       <TraceTree rootNodes={manyRootNodes} isActive={true} isFocused={true} />,
@@ -303,13 +335,16 @@ describe('TraceTree', () => {
   });
 
   it('supports page-down scrolling even when the tree is read-only', async () => {
-    const manyRootNodes: TraceNode[] = Array.from({ length: 20 }, (_, index) => ({
-      id: `tool-${index + 1}`,
-      type: 'tool',
-      name: `tool-${index + 1}`,
-      status: CoreToolCallStatus.Success,
-      children: [],
-    }));
+    const manyRootNodes: TraceNode[] = Array.from(
+      { length: 20 },
+      (_, index) => ({
+        id: `tool-${index + 1}`,
+        type: 'tool',
+        name: `tool-${index + 1}`,
+        status: CoreToolCallStatus.Success,
+        children: [],
+      }),
+    );
 
     const { lastFrame, waitUntilReady, unmount } = render(
       <TraceTree rootNodes={manyRootNodes} isActive={false} isFocused={true} />,

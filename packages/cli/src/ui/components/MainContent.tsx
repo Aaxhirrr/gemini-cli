@@ -22,6 +22,7 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
 } from 'react';
 import { MAX_GEMINI_MESSAGE_LINES } from '../constants.js';
 import { useConfirmingTool } from '../hooks/useConfirmingTool.js';
@@ -31,7 +32,10 @@ import { TraceTree } from './trace/TraceTree.js';
 import { StepActionBar } from './trace/StepActionBar.js';
 import {
   filterTraceByVerbosity,
+  isTraceVerbosityMode,
+  resolveTraceCategoryVerbosity,
   resolveTraceVerbosity,
+  shouldRenderTraceForVerbosity,
 } from './trace/traceVerbosity.js';
 import { buildPresentationTraceTree } from './trace/presentationTree.js';
 import { useToolActions } from '../contexts/ToolActionsContext.js';
@@ -41,9 +45,14 @@ import { mapToDisplay } from '../hooks/toolMapping.js';
 import { StreamingState } from '../types.js';
 import { useSettings } from '../contexts/SettingsContext.js';
 import type { ConfirmingToolState } from '../hooks/useConfirmingTool.js';
-import type { TraceVerbosityMode } from './trace/traceVerbosity.js';
+import type {
+  ResolvedTraceCategoryVerbosity,
+  TraceVerbosityMode,
+} from './trace/traceVerbosity.js';
 import { theme } from '../semantic-colors.js';
 import type { HistoryItemWithoutId } from '../types.js';
+import { useKeypress } from '../hooks/useKeypress.js';
+import { KeypressPriority } from '../contexts/KeypressContext.js';
 
 const MemoizedHistoryItemDisplay = memo(HistoryItemDisplay);
 const MemoizedAppHeader = memo(AppHeader);
@@ -70,15 +79,16 @@ interface TraceSectionProps {
   visibleTraceNodes: TraceNode[];
   isTraceTreeInteractive: boolean;
   isStepInteractionActive: boolean;
-  isMainContentFocused: boolean;
+  isTraceTreeFocused: boolean;
   traceVerbosity: TraceVerbosityMode;
+  traceCategoryVerbosity: ResolvedTraceCategoryVerbosity;
   stepMode: boolean;
   confirmingTraceNode: TraceNode | null;
   confirmingTool: ConfirmingToolState | null;
   confirm: (callId: string, outcome: ToolConfirmationOutcome) => Promise<void>;
   cancel: (callId: string) => Promise<void>;
   setStepMode: (enabled: boolean) => void;
-  detailView: 'inline' | 'panel';
+  detailView: 'inline' | 'panel' | 'off';
 }
 
 const TraceSectionComponent = ({
@@ -86,8 +96,9 @@ const TraceSectionComponent = ({
   visibleTraceNodes,
   isTraceTreeInteractive,
   isStepInteractionActive,
-  isMainContentFocused,
+  isTraceTreeFocused,
   traceVerbosity,
+  traceCategoryVerbosity,
   stepMode,
   confirmingTraceNode,
   confirmingTool,
@@ -117,8 +128,9 @@ const TraceSectionComponent = ({
           <TraceTree
             rootNodes={visibleTraceNodes}
             isActive={isTraceTreeInteractive}
-            isFocused={isMainContentFocused}
+            isFocused={isTraceTreeFocused}
             verbosity={traceVerbosity}
+            categoryVerbosity={traceCategoryVerbosity}
             detailView={detailView}
           />
         </Box>
@@ -199,6 +211,9 @@ export const MainContent = () => {
   const showHeaderDetails = cleanUiDetailsVisible;
   const isMainContentFocused =
     !uiState.isEditorDialogOpen && !uiState.embeddedShellFocused;
+  const [activePendingPanel, setActivePendingPanel] = useState<
+    'confirmation' | 'trace'
+  >('confirmation');
 
   const rawLastUserPromptIndex = useMemo(() => {
     for (let i = uiState.history.length - 1; i >= 0; i--) {
@@ -247,6 +262,58 @@ export const MainContent = () => {
     }
     return resolved;
   }, [settings.merged.ui.traceVerbosity, uiState.stepMode]);
+
+  const traceCategoryVerbosity = useMemo<ResolvedTraceCategoryVerbosity>(() => {
+    const traceTaskVerbosityOverride =
+      process.env['GEMINI_TRACE_TASK_VERBOSITY'];
+    const traceDecisionVerbosityOverride =
+      process.env['GEMINI_TRACE_DECISION_VERBOSITY'];
+    const traceSubagentVerbosityOverride =
+      process.env['GEMINI_TRACE_SUBAGENT_VERBOSITY'];
+    const traceToolVerbosityOverride =
+      process.env['GEMINI_TRACE_TOOL_VERBOSITY'];
+
+    const resolved = resolveTraceCategoryVerbosity({
+      task: isTraceVerbosityMode(traceTaskVerbosityOverride)
+        ? traceTaskVerbosityOverride
+        : settings.merged.ui.traceTaskVerbosity,
+      decision: isTraceVerbosityMode(traceDecisionVerbosityOverride)
+        ? traceDecisionVerbosityOverride
+        : settings.merged.ui.traceDecisionVerbosity,
+      subagent: isTraceVerbosityMode(traceSubagentVerbosityOverride)
+        ? traceSubagentVerbosityOverride
+        : settings.merged.ui.traceSubagentVerbosity,
+      tool: isTraceVerbosityMode(traceToolVerbosityOverride)
+        ? traceToolVerbosityOverride
+        : settings.merged.ui.traceToolVerbosity,
+    });
+
+    if (!uiState.stepMode) {
+      return resolved;
+    }
+
+    const promoted: ResolvedTraceCategoryVerbosity = { ...resolved };
+    if (promoted.task === 'quiet') {
+      promoted.task = 'standard';
+    }
+    if (promoted.decision === 'quiet') {
+      promoted.decision = 'standard';
+    }
+    if (promoted.subagent === 'quiet') {
+      promoted.subagent = 'standard';
+    }
+    if (promoted.tool === 'quiet') {
+      promoted.tool = 'standard';
+    }
+
+    return promoted;
+  }, [
+    settings.merged.ui.traceTaskVerbosity,
+    settings.merged.ui.traceDecisionVerbosity,
+    settings.merged.ui.traceSubagentVerbosity,
+    settings.merged.ui.traceToolVerbosity,
+    uiState.stepMode,
+  ]);
 
   const traceTaskLabel = useMemo(() => {
     if (rawLastUserPromptIndex < 0) {
@@ -330,20 +397,23 @@ export const MainContent = () => {
       : [];
   }, [presentationTraceNodes, traceTurnKey]);
 
-  const shouldInlineTraceView = useMemo(
-    () => traceVerbosity !== 'quiet' && effectivePresentationTraceNodes.length > 0,
-    [traceVerbosity, effectivePresentationTraceNodes.length],
-  );
+  const visibleTraceNodes = useMemo(() => {
+    if (
+      !shouldRenderTraceForVerbosity(traceVerbosity, traceCategoryVerbosity)
+    ) {
+      return [];
+    }
 
-  const visibleTraceNodes = useMemo(
-    () =>
-      traceVerbosity === 'quiet'
-        ? []
-        : filterTraceByVerbosity(
-            effectivePresentationTraceNodes,
-            traceVerbosity,
-          ),
-    [effectivePresentationTraceNodes, traceVerbosity],
+    return filterTraceByVerbosity(
+      effectivePresentationTraceNodes,
+      traceVerbosity,
+      traceCategoryVerbosity,
+    );
+  }, [effectivePresentationTraceNodes, traceVerbosity, traceCategoryVerbosity]);
+
+  const shouldInlineTraceView = useMemo(
+    () => visibleTraceNodes.length > 0,
+    [visibleTraceNodes.length],
   );
 
   const history = useMemo(
@@ -480,10 +550,63 @@ export const MainContent = () => {
     [rootTraceNodes, findConfirmingNode],
   );
 
-  const traceDetailView = useMemo<'inline' | 'panel'>(
-    () => (isAlternateBuffer ? 'inline' : 'panel'),
-    [isAlternateBuffer],
+  const traceInspectorEnabled =
+    process.env['GEMINI_TRACE_INSPECTOR'] === 'true';
+
+  const traceDetailView = useMemo<'inline' | 'panel' | 'off'>(() => {
+    if (uiState.stepMode || !traceInspectorEnabled) {
+      return 'off';
+    }
+    return isAlternateBuffer ? 'inline' : 'panel';
+  }, [isAlternateBuffer, traceInspectorEnabled, uiState.stepMode]);
+
+  const confirmationType = confirmingTool?.tool.confirmationDetails?.type;
+  const confirmationOwnsKeyboard =
+    confirmationType === 'ask_user' || confirmationType === 'exit_plan_mode';
+  const canSwitchPendingPanelFocus =
+    !uiState.stepMode &&
+    showConfirmationQueue &&
+    !!confirmingTool &&
+    visibleTraceNodes.length > 0 &&
+    !confirmationOwnsKeyboard;
+
+  useEffect(() => {
+    setActivePendingPanel('confirmation');
+  }, [confirmingToolCallId]);
+
+  useEffect(() => {
+    if (!canSwitchPendingPanelFocus) {
+      setActivePendingPanel('confirmation');
+    }
+  }, [canSwitchPendingPanelFocus]);
+
+  useKeypress(
+    (key) => {
+      if (key.name !== 'tab') {
+        return false;
+      }
+
+      setActivePendingPanel((current) =>
+        current === 'confirmation' ? 'trace' : 'confirmation',
+      );
+      return true;
+    },
+    {
+      isActive: canSwitchPendingPanelFocus && isMainContentFocused,
+      priority: KeypressPriority.Critical,
+    },
   );
+
+  const isConfirmationQueueFocused =
+    !uiState.stepMode &&
+    showConfirmationQueue &&
+    !!confirmingTool &&
+    (!canSwitchPendingPanelFocus || activePendingPanel === 'confirmation');
+  const isTraceTreeFocused =
+    isMainContentFocused &&
+    (!showConfirmationQueue ||
+      uiState.stepMode ||
+      (canSwitchPendingPanelFocus && activePendingPanel === 'trace'));
 
   const isStepInteractionActive = useMemo(
     () =>
@@ -502,14 +625,14 @@ export const MainContent = () => {
   const isTraceTreeInteractive = useMemo(
     () =>
       isMainContentFocused &&
-      (
-        isAlternateBuffer ||
+      !isConfirmationQueueFocused &&
+      (isAlternateBuffer ||
         uiState.streamingState !== StreamingState.Idle ||
         uiState.stepMode ||
-        !uiState.isInputActive
-      ),
+        !uiState.isInputActive),
     [
       isMainContentFocused,
+      isConfirmationQueueFocused,
       isAlternateBuffer,
       uiState.streamingState,
       uiState.stepMode,
@@ -537,9 +660,7 @@ export const MainContent = () => {
       <>
         {pendingTraceHistory.map((item, i) => {
           const prevType =
-            i === 0
-              ? history.at(-1)?.type
-              : pendingTraceHistory[i - 1]?.type;
+            i === 0 ? history.at(-1)?.type : pendingTraceHistory[i - 1]?.type;
           const previousItem =
             i === 0 ? history.at(-1) : pendingTraceHistory[i - 1];
           const isFirstThinking =
@@ -565,7 +686,10 @@ export const MainContent = () => {
           );
         })}
         {!uiState.stepMode && showConfirmationQueue && confirmingTool && (
-          <ToolConfirmationQueue confirmingTool={confirmingTool} />
+          <ToolConfirmationQueue
+            confirmingTool={confirmingTool}
+            isFocused={isConfirmationQueueFocused}
+          />
         )}
       </>
     ),
@@ -577,6 +701,7 @@ export const MainContent = () => {
       mainAreaWidth,
       showConfirmationQueue,
       confirmingTool,
+      isConfirmationQueueFocused,
       history,
     ],
   );
@@ -590,8 +715,9 @@ export const MainContent = () => {
           visibleTraceNodes={visibleTraceNodes}
           isTraceTreeInteractive={isTraceTreeInteractive}
           isStepInteractionActive={isStepInteractionActive}
-          isMainContentFocused={isMainContentFocused}
+          isTraceTreeFocused={isTraceTreeFocused}
           traceVerbosity={traceVerbosity}
+          traceCategoryVerbosity={traceCategoryVerbosity}
           stepMode={!!uiState.stepMode}
           confirmingTraceNode={confirmingTraceNode}
           confirmingTool={confirmingTool}
@@ -608,8 +734,9 @@ export const MainContent = () => {
       visibleTraceNodes,
       isTraceTreeInteractive,
       isStepInteractionActive,
-      isMainContentFocused,
+      isTraceTreeFocused,
       traceVerbosity,
+      traceCategoryVerbosity,
       uiState.stepMode,
       confirmingTraceNode,
       confirmingTool,
@@ -725,10 +852,3 @@ export const MainContent = () => {
     </>
   );
 };
-
-
-
-
-
-
-

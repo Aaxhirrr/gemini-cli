@@ -61,6 +61,26 @@ describe('StepActionBar', () => {
     unmount();
   });
 
+  it('registers at critical keypress priority so step mode wins Enter before the trace tree', async () => {
+    const { waitUntilReady, unmount } = render(
+      <StepActionBar
+        pendingNode={pendingNode}
+        isActive={true}
+        onExecute={vi.fn()}
+        onSkip={vi.fn()}
+        onContinue={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    await waitUntilReady();
+
+    const options = mockedUseKeypress.mock.calls[0][1] as { priority: number };
+    expect(options.priority).toBe(200);
+
+    unmount();
+  });
+
   it('handles mouse click for execute', async () => {
     const onExecute = vi.fn();
     const { waitUntilReady, unmount } = render(

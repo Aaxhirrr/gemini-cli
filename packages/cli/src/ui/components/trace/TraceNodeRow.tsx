@@ -13,7 +13,11 @@ import type { TraceNode } from '../../state/useTraceTree.js';
 import { ToolStatusIndicator } from '../messages/ToolShared.js';
 import { TraceNodeDetails } from './TraceNodeDetails.js';
 import { hasTraceDetailSections } from './traceDetails.js';
-import type { TraceVerbosityMode } from './traceVerbosity.js';
+import {
+  resolveNodeTraceVerbosity,
+  type ResolvedTraceCategoryVerbosity,
+  type TraceVerbosityMode,
+} from './traceVerbosity.js';
 
 const MAX_NAME_CHARS = 72;
 const MAX_DESCRIPTION_CHARS = 140;
@@ -27,7 +31,8 @@ interface TraceNodeRowProps {
   isExpanded: boolean;
   isDetailsExpanded: boolean;
   verbosity: TraceVerbosityMode;
-  toggleDetailsHint: string;
+  categoryVerbosity?: ResolvedTraceCategoryVerbosity;
+  toggleDetailsHint: string | null;
   showDetailsInline: boolean;
 }
 
@@ -78,9 +83,15 @@ const TraceNodeRowComponent: FC<TraceNodeRowProps> = ({
   isExpanded,
   isDetailsExpanded,
   verbosity,
+  categoryVerbosity,
   toggleDetailsHint,
   showDetailsInline,
 }) => {
+  const effectiveVerbosity = resolveNodeTraceVerbosity(
+    node.type,
+    verbosity,
+    categoryVerbosity,
+  );
   const isError = node.status === CoreToolCallStatus.Error;
 
   let statusColor = theme.text.primary;
@@ -104,13 +115,13 @@ const TraceNodeRowComponent: FC<TraceNodeRowProps> = ({
   const bg = isSelected ? theme.background.focus : undefined;
   const name = truncateInline(node.name, MAX_NAME_CHARS);
   const description =
-    verbosity !== 'quiet' && node.description
+    effectiveVerbosity !== 'quiet' && node.description
       ? truncateInline(node.description, MAX_DESCRIPTION_CHARS)
       : undefined;
   const typeLabel = getNodeTypeLabel(node);
 
   const debugParts: string[] = [];
-  if (verbosity === 'debug') {
+  if (effectiveVerbosity === 'debug') {
     debugParts.push(`id=${node.id}`);
     debugParts.push(`status=${node.status}`);
     if (node.parentId) {
@@ -143,7 +154,7 @@ const TraceNodeRowComponent: FC<TraceNodeRowProps> = ({
           <Text color={theme.status.warning}>! </Text>
         )}
 
-        {verbosity === 'debug' && (
+        {effectiveVerbosity === 'debug' && (
           <Text color={theme.text.secondary} dimColor>{`[${typeLabel}] `}</Text>
         )}
 
@@ -160,7 +171,10 @@ const TraceNodeRowComponent: FC<TraceNodeRowProps> = ({
               </Text>
             )}
             {node.retryCount && node.retryCount > 1 && (
-              <Text color={theme.status.warning} bold>{` x${node.retryCount}`}</Text>
+              <Text
+                color={theme.status.warning}
+                bold
+              >{` x${node.retryCount}`}</Text>
             )}
             {node.isConfirming && (
               <Text color={theme.status.warning} dimColor>
@@ -172,16 +186,22 @@ const TraceNodeRowComponent: FC<TraceNodeRowProps> = ({
                 {' failed'}
               </Text>
             )}
-            {hasDetails && !isDetailsExpanded && isSelected && (
-              <Text color={theme.ui.active} dimColor>
-                {`  [${toggleDetailsHint}]`}
-              </Text>
-            )}
-            {hasDetails && isDetailsExpanded && isSelected && !showDetailsInline && (
-              <Text color={theme.ui.active} dimColor>
-                {'  inspector open'}
-              </Text>
-            )}
+            {hasDetails &&
+              toggleDetailsHint &&
+              !isDetailsExpanded &&
+              isSelected && (
+                <Text color={theme.ui.active} dimColor>
+                  {`  [${toggleDetailsHint}]`}
+                </Text>
+              )}
+            {hasDetails &&
+              isDetailsExpanded &&
+              isSelected &&
+              !showDetailsInline && (
+                <Text color={theme.ui.active} dimColor>
+                  {'  inspector open'}
+                </Text>
+              )}
           </Text>
         </Box>
 
@@ -194,12 +214,12 @@ const TraceNodeRowComponent: FC<TraceNodeRowProps> = ({
           isSelected={isSelected}
           isExpanded={isDetailsExpanded}
           indent={detailIndent}
-          toggleHint={toggleDetailsHint}
+          toggleHint={toggleDetailsHint ?? ''}
           layout="inline"
         />
       )}
 
-      {verbosity === 'debug' && debugParts.length > 0 && (
+      {effectiveVerbosity === 'debug' && debugParts.length > 0 && (
         <Box paddingLeft={detailIndent}>
           <Text color={theme.text.secondary} dimColor>
             {debugParts.join('  ')}

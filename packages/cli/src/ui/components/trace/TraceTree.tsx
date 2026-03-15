@@ -13,7 +13,10 @@ import { TraceNodeDetails } from './TraceNodeDetails.js';
 import { CoreToolCallStatus } from '@google/gemini-cli-core';
 import { useKeypress, type Key } from '../../hooks/useKeypress.js';
 import { KeypressPriority } from '../../contexts/KeypressContext.js';
-import type { TraceVerbosityMode } from './traceVerbosity.js';
+import type {
+  ResolvedTraceCategoryVerbosity,
+  TraceVerbosityMode,
+} from './traceVerbosity.js';
 import { theme } from '../../semantic-colors.js';
 import { useKeyMatchers } from '../../hooks/useKeyMatchers.js';
 import { Command } from '../../key/keyMatchers.js';
@@ -23,14 +26,14 @@ import { hasTraceDetailSections } from './traceDetails.js';
 const MAX_VIEWPORT_NODES = 15;
 const VIEWPORT_PAGE_JUMP = Math.max(4, MAX_VIEWPORT_NODES - 4);
 const INSPECTOR_PANEL_HEIGHT = 18;
-
-type TraceDetailView = 'inline' | 'panel';
+type TraceDetailView = 'inline' | 'panel' | 'off';
 
 interface TraceTreeProps {
   rootNodes: TraceNode[];
   isActive?: boolean;
   isFocused?: boolean;
   verbosity?: TraceVerbosityMode;
+  categoryVerbosity?: ResolvedTraceCategoryVerbosity;
   onNodeSelect?: (node: TraceNode) => void;
   detailView?: TraceDetailView;
 }
@@ -50,12 +53,10 @@ function collectAutoExpandedIds(
   for (const node of nodes) {
     if (
       node.children.length > 0 &&
-      (
-        depth === 0 ||
+      (depth === 0 ||
         node.type === 'task' ||
         node.type === 'subagent' ||
-        node.type === 'decision'
-      )
+        node.type === 'decision')
     ) {
       ids.add(node.id);
     }
@@ -105,22 +106,29 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
   isActive = false,
   isFocused = true,
   verbosity = 'standard',
+  categoryVerbosity,
   onNodeSelect,
   detailView = 'inline',
 }) => {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set());
+  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(
+    new Set(),
+  );
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isInspectorExpanded, setIsInspectorExpanded] = useState(false);
   const isInteractive = isActive && isFocused;
   const keyMatchers = useKeyMatchers();
   const autoExpandedNodeIdsRef = useRef(new Set<string>());
+  const detailsEnabled = detailView !== 'off';
   const usesInspectorPanel = detailView === 'panel';
-  const isInspectorNavigable = usesInspectorPanel && isInspectorOpen;
-  const toggleDetailsHint = isInteractive || isInspectorNavigable
-    ? 'Enter'
-    : formatCommand(Command.SHOW_MORE_LINES);
+  const isInspectorNavigable =
+    detailsEnabled && usesInspectorPanel && isInspectorOpen;
+  const toggleDetailsHint = detailsEnabled
+    ? isInteractive || isInspectorNavigable
+      ? 'Enter'
+      : formatCommand(Command.SHOW_MORE_LINES)
+    : null;
   const showMoreHint = formatCommand(Command.SHOW_MORE_LINES);
 
   useEffect(() => {
@@ -253,7 +261,11 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
       }
 
       const toggleCurrentDetails = () => {
-        if (!current || !hasTraceDetailSections(current.node)) {
+        if (
+          !detailsEnabled ||
+          !current ||
+          !hasTraceDetailSections(current.node)
+        ) {
           return false;
         }
 
@@ -302,6 +314,7 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
       }
 
       if (
+        detailsEnabled &&
         current &&
         keyMatchers[Command.SHOW_MORE_LINES](key) &&
         hasTraceDetailSections(current.node)
@@ -392,7 +405,7 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
           return true;
         }
 
-        if (hasTraceDetailSections(current.node)) {
+        if (detailsEnabled && hasTraceDetailSections(current.node)) {
           return toggleCurrentDetails();
         }
 
@@ -418,7 +431,7 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
 
       return false;
     },
-    [keyMatchers, usesInspectorPanel],
+    [detailsEnabled, keyMatchers, usesInspectorPanel],
   );
 
   const shouldCaptureNavigation = isInteractive || isInspectorNavigable;
@@ -430,13 +443,9 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
       : KeypressPriority.Normal,
   });
 
-  if (visibleNodes.length === 0) {
-    return null;
-  }
-
   const selectedNode = visibleNodes[selectedIndex]?.node ?? null;
   const selectedNodeHasDetails = selectedNode
-    ? hasTraceDetailSections(selectedNode)
+    ? detailsEnabled && hasTraceDetailSections(selectedNode)
     : false;
   const selectedInspectorNode = usesInspectorPanel ? selectedNode : null;
 
@@ -445,6 +454,10 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
       setIsInspectorExpanded(false);
     }
   }, [selectedNode?.id, usesInspectorPanel]);
+
+  if (visibleNodes.length === 0) {
+    return null;
+  }
 
   const { start, end } = computeViewport(
     visibleNodes.length,
@@ -470,7 +483,8 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
         )}
         {windowedNodes.map((item, windowIndex) => {
           const globalIndex = start + windowIndex;
-          const isCurrentSelection = isSelectionVisible && globalIndex === selectedIndex;
+          const isCurrentSelection =
+            isSelectionVisible && globalIndex === selectedIndex;
           return (
             <TraceNodeRow
               key={item.node.id}
@@ -482,12 +496,17 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
               isExpanded={expandedNodes.has(item.node.id)}
               isDetailsExpanded={
                 usesInspectorPanel
-                  ? !!(isInspectorOpen && isCurrentSelection && hasTraceDetailSections(item.node))
+                  ? !!(
+                      isInspectorOpen &&
+                      isCurrentSelection &&
+                      hasTraceDetailSections(item.node)
+                    )
                   : expandedDetails.has(item.node.id)
               }
               verbosity={verbosity}
+              categoryVerbosity={categoryVerbosity}
               toggleDetailsHint={toggleDetailsHint}
-              showDetailsInline={!usesInspectorPanel}
+              showDetailsInline={detailView === 'inline'}
             />
           );
         })}
@@ -529,7 +548,7 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
                       isSelected={true}
                       isExpanded={true}
                       indent={0}
-                      toggleHint={toggleDetailsHint}
+                      toggleHint={toggleDetailsHint ?? showMoreHint}
                       layout="panel"
                       panelMode={isInspectorExpanded ? 'expanded' : 'compact'}
                       sectionMaxLines={2}
@@ -545,7 +564,8 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
                 ) : (
                   <Box marginTop={1}>
                     <Text color={theme.text.secondary} dimColor>
-                      [{toggleDetailsHint}] Inspect the selected node without resizing the live trace.
+                      [{toggleDetailsHint}] Inspect the selected node without
+                      resizing the live trace.
                     </Text>
                   </Box>
                 )}
@@ -565,5 +585,3 @@ const TraceTreeComponent: FC<TraceTreeProps> = ({
 };
 
 export const TraceTree = memo(TraceTreeComponent);
-
-

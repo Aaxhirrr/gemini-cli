@@ -117,6 +117,39 @@ describe('SettingsSchema', () => {
       ]);
     });
 
+    it('should have category-specific trace verbosity overrides', () => {
+      const uiSettings = getSettingsSchema().ui?.properties;
+      const expectedValues = [
+        'inherit',
+        'quiet',
+        'standard',
+        'verbose',
+        'debug',
+      ];
+
+      expect(uiSettings?.traceTaskVerbosity?.default).toBe('inherit');
+      expect(uiSettings?.traceDecisionVerbosity?.default).toBe('inherit');
+      expect(uiSettings?.traceSubagentVerbosity?.default).toBe('inherit');
+      expect(uiSettings?.traceToolVerbosity?.default).toBe('inherit');
+
+      expect(
+        uiSettings?.traceTaskVerbosity?.options?.map((option) => option.value),
+      ).toEqual(expectedValues);
+      expect(
+        uiSettings?.traceDecisionVerbosity?.options?.map(
+          (option) => option.value,
+        ),
+      ).toEqual(expectedValues);
+      expect(
+        uiSettings?.traceSubagentVerbosity?.options?.map(
+          (option) => option.value,
+        ),
+      ).toEqual(expectedValues);
+      expect(
+        uiSettings?.traceToolVerbosity?.options?.map((option) => option.value),
+      ).toEqual(expectedValues);
+    });
+
     it('should have checkpointing nested properties', () => {
       expect(
         getSettingsSchema().general?.properties?.checkpointing.properties

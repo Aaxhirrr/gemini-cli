@@ -728,6 +728,68 @@ describe('loadCliConfig', () => {
     expect(process.env['GEMINI_TRACE_VERBOSITY']).toBeUndefined();
   });
 
+  it('sets category-specific trace verbosity env vars when the CLI flags are provided', async () => {
+    process.argv = [
+      'node',
+      'script.js',
+      '--trace-task-verbosity',
+      'standard',
+      '--trace-decision-verbosity',
+      'verbose',
+      '--trace-subagent-verbosity',
+      'debug',
+      '--trace-tool-verbosity',
+      'quiet',
+    ];
+    const argv = await parseArguments(createTestMergedSettings());
+    const settings = createTestMergedSettings();
+
+    await loadCliConfig(settings, 'test-session', argv);
+
+    expect(process.env['GEMINI_TRACE_TASK_VERBOSITY']).toBe('standard');
+    expect(process.env['GEMINI_TRACE_DECISION_VERBOSITY']).toBe('verbose');
+    expect(process.env['GEMINI_TRACE_SUBAGENT_VERBOSITY']).toBe('debug');
+    expect(process.env['GEMINI_TRACE_TOOL_VERBOSITY']).toBe('quiet');
+  });
+
+  it('clears category-specific trace verbosity env vars when the CLI flags are not provided', async () => {
+    vi.stubEnv('GEMINI_TRACE_TASK_VERBOSITY', 'debug');
+    vi.stubEnv('GEMINI_TRACE_DECISION_VERBOSITY', 'debug');
+    vi.stubEnv('GEMINI_TRACE_SUBAGENT_VERBOSITY', 'debug');
+    vi.stubEnv('GEMINI_TRACE_TOOL_VERBOSITY', 'debug');
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments(createTestMergedSettings());
+    const settings = createTestMergedSettings();
+
+    await loadCliConfig(settings, 'test-session', argv);
+
+    expect(process.env['GEMINI_TRACE_TASK_VERBOSITY']).toBeUndefined();
+    expect(process.env['GEMINI_TRACE_DECISION_VERBOSITY']).toBeUndefined();
+    expect(process.env['GEMINI_TRACE_SUBAGENT_VERBOSITY']).toBeUndefined();
+    expect(process.env['GEMINI_TRACE_TOOL_VERBOSITY']).toBeUndefined();
+  });
+
+  it('sets GEMINI_TRACE_INSPECTOR when --trace-inspector is provided', async () => {
+    process.argv = ['node', 'script.js', '--trace-inspector'];
+    const argv = await parseArguments(createTestMergedSettings());
+    const settings = createTestMergedSettings();
+
+    await loadCliConfig(settings, 'test-session', argv);
+
+    expect(process.env['GEMINI_TRACE_INSPECTOR']).toBe('true');
+  });
+
+  it('clears GEMINI_TRACE_INSPECTOR when --trace-inspector is not provided', async () => {
+    vi.stubEnv('GEMINI_TRACE_INSPECTOR', 'true');
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments(createTestMergedSettings());
+    const settings = createTestMergedSettings();
+
+    await loadCliConfig(settings, 'test-session', argv);
+
+    expect(process.env['GEMINI_TRACE_INSPECTOR']).toBeUndefined();
+  });
+
   describe('Proxy configuration', () => {
     const originalProxyEnv: { [key: string]: string | undefined } = {};
     const proxyEnvVars = [

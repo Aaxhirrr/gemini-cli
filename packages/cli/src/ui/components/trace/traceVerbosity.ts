@@ -8,6 +8,14 @@ import { CoreToolCallStatus } from '@google/gemini-cli-core';
 import type { TraceNode } from '../../state/useTraceTree.js';
 
 export type TraceVerbosityMode = 'quiet' | 'standard' | 'verbose' | 'debug';
+export type TraceVerbosityOverrideMode = TraceVerbosityMode | 'inherit';
+export type TraceVerbosityCategory = TraceNode['type'];
+export type TraceCategoryVerbosityOverrides = Partial<
+  Record<TraceVerbosityCategory, TraceVerbosityOverrideMode | undefined>
+>;
+export type ResolvedTraceCategoryVerbosity = Partial<
+  Record<TraceVerbosityCategory, TraceVerbosityMode>
+>;
 
 const TRACE_VERBOSITY_MODES: ReadonlySet<string> = new Set([
   'quiet',
@@ -15,6 +23,12 @@ const TRACE_VERBOSITY_MODES: ReadonlySet<string> = new Set([
   'verbose',
   'debug',
 ]);
+const TRACE_VERBOSITY_CATEGORIES: readonly TraceVerbosityCategory[] = [
+  'task',
+  'decision',
+  'subagent',
+  'tool',
+];
 
 function isFinalStatus(status: CoreToolCallStatus): boolean {
   return (
@@ -61,47 +75,112 @@ function shouldKeepNodeInStandardMode(node: TraceNode, depth: number): boolean {
   return depth <= 3 && isFinalStatus(node.status);
 }
 
-function collectQuietNodes(nodes: TraceNode[]): TraceNode[] {
-  const finalNodes: TraceNode[] = [];
-
-  for (const node of nodes) {
-    if (isFinalStatus(node.status)) {
-      finalNodes.push({
-        ...node,
-        parentId: undefined,
-        children: [],
-      });
-    }
-
-    if (node.children.length > 0) {
-      finalNodes.push(...collectQuietNodes(node.children));
-    }
+function shouldKeepNodeInQuietMode(node: TraceNode, depth: number): boolean {
+  if (node.type === 'task') {
+    return true;
   }
 
-  return finalNodes;
+  if (node.type !== 'tool') {
+    if (node.isConfirming) {
+      return true;
+    }
+
+    if (isActiveStatus(node.status)) {
+      return true;
+    }
+
+    if (
+      node.status === CoreToolCallStatus.Error ||
+      node.status === CoreToolCallStatus.Cancelled
+    ) {
+      return true;
+    }
+
+    if ((node.retryCount ?? 0) > 1) {
+      return true;
+    }
+
+    if (node.hasFailedDescendant) {
+      return true;
+    }
+
+    // Quiet mode keeps the root task and its immediate structural branches,
+    // while deeper successful reasoning scaffolding stays hidden unless it is
+    // active or part of a failure/waiting path.
+    return depth <= 1;
+  }
+
+  if (node.isConfirming) {
+    return true;
+  }
+
+  if (isActiveStatus(node.status)) {
+    return true;
+  }
+
+  if (
+    node.status === CoreToolCallStatus.Error ||
+    node.status === CoreToolCallStatus.Cancelled
+  ) {
+    return true;
+  }
+
+  if ((node.retryCount ?? 0) > 1) {
+    return true;
+  }
+
+  if (node.hasFailedDescendant) {
+    return true;
+  }
+
+  return depth === 0 && isFinalStatus(node.status);
 }
 
-function filterStandardNodes(
-  nodes: TraceNode[],
-  depth = 0,
-): TraceNode[] {
-  const filtered: TraceNode[] = [];
+function stripQuietDuplicateSuffix(name: string): string {
+  return name.replace(/\s+\(\d+\)$/u, '');
+}
+
+function isQuietMergeableStructuralNode(node: TraceNode): boolean {
+  return (
+    node.type !== 'tool' &&
+    node.status === CoreToolCallStatus.Success &&
+    !node.isConfirming &&
+    !node.hasFailedDescendant &&
+    node.children.length === 0
+  );
+}
+
+function collapseQuietStructuralSiblings(nodes: TraceNode[]): TraceNode[] {
+  const collapsed: TraceNode[] = [];
+  const mergedKeys = new Set<string>();
 
   for (const node of nodes) {
-    const filteredChildren = filterStandardNodes(node.children, depth + 1);
-    const keepSelf = shouldKeepNodeInStandardMode(node, depth);
+    const collapsedChildren = collapseQuietStructuralSiblings(node.children);
+    const nextNode: TraceNode = {
+      ...node,
+      children: collapsedChildren,
+    };
 
-    if (!keepSelf && filteredChildren.length === 0) {
+    if (!isQuietMergeableStructuralNode(nextNode)) {
+      collapsed.push(nextNode);
       continue;
     }
 
-    filtered.push({
-      ...node,
-      children: filteredChildren,
+    const normalizedName = stripQuietDuplicateSuffix(nextNode.name);
+    const mergeKey = `${nextNode.type}:${normalizedName}`;
+
+    if (mergedKeys.has(mergeKey)) {
+      continue;
+    }
+
+    mergedKeys.add(mergeKey);
+    collapsed.push({
+      ...nextNode,
+      name: normalizedName,
     });
   }
 
-  return filtered;
+  return collapsed;
 }
 
 export function isTraceVerbosityMode(
@@ -123,17 +202,109 @@ export function resolveTraceVerbosity(
   return 'quiet';
 }
 
+export function resolveTraceCategoryVerbosity(
+  overrides: TraceCategoryVerbosityOverrides | undefined,
+): ResolvedTraceCategoryVerbosity {
+  const resolved: ResolvedTraceCategoryVerbosity = {};
+  if (!overrides) {
+    return resolved;
+  }
+
+  for (const category of TRACE_VERBOSITY_CATEGORIES) {
+    const value = overrides[category];
+    if (isTraceVerbosityMode(value)) {
+      resolved[category] = value;
+    }
+  }
+
+  return resolved;
+}
+
+export function resolveNodeTraceVerbosity(
+  nodeType: TraceVerbosityCategory,
+  verbosity: TraceVerbosityMode,
+  categoryVerbosity?: ResolvedTraceCategoryVerbosity,
+): TraceVerbosityMode {
+  return categoryVerbosity?.[nodeType] ?? verbosity;
+}
+
+export function shouldRenderTraceForVerbosity(
+  _verbosity: TraceVerbosityMode,
+  _categoryVerbosity?: ResolvedTraceCategoryVerbosity,
+): boolean {
+  return true;
+}
+
+function hasCategoryVerbosityOverrides(
+  categoryVerbosity?: ResolvedTraceCategoryVerbosity,
+): boolean {
+  return Object.keys(categoryVerbosity ?? {}).length > 0;
+}
+
+function filterTraceByCategoryVerbosity(
+  nodes: TraceNode[],
+  verbosity: TraceVerbosityMode,
+  categoryVerbosity: ResolvedTraceCategoryVerbosity | undefined,
+  depth = 0,
+): TraceNode[] {
+  const filtered: TraceNode[] = [];
+
+  for (const node of nodes) {
+    const filteredChildren = filterTraceByCategoryVerbosity(
+      node.children,
+      verbosity,
+      categoryVerbosity,
+      depth + 1,
+    );
+    const effectiveVerbosity = resolveNodeTraceVerbosity(
+      node.type,
+      verbosity,
+      categoryVerbosity,
+    );
+
+    let keepSelf = false;
+    if (effectiveVerbosity === 'verbose' || effectiveVerbosity === 'debug') {
+      keepSelf = true;
+    } else if (effectiveVerbosity === 'standard') {
+      keepSelf = shouldKeepNodeInStandardMode(node, depth);
+    } else {
+      keepSelf = shouldKeepNodeInQuietMode(node, depth);
+    }
+
+    if (!keepSelf && filteredChildren.length === 0) {
+      continue;
+    }
+
+    filtered.push({
+      ...node,
+      children: filteredChildren,
+    });
+  }
+
+  return filtered;
+}
+
 export function filterTraceByVerbosity(
   nodes: TraceNode[],
   verbosity: TraceVerbosityMode,
+  categoryVerbosity?: ResolvedTraceCategoryVerbosity,
 ): TraceNode[] {
-  if (verbosity === 'quiet') {
-    return collectQuietNodes(nodes);
-  }
-
-  if (verbosity === 'verbose' || verbosity === 'debug') {
+  if (
+    (verbosity === 'verbose' || verbosity === 'debug') &&
+    !hasCategoryVerbosityOverrides(categoryVerbosity)
+  ) {
     return nodes;
   }
 
-  return filterStandardNodes(nodes);
+  const filtered = filterTraceByCategoryVerbosity(
+    nodes,
+    verbosity,
+    categoryVerbosity,
+  );
+
+  if (verbosity === 'quiet') {
+    return collapseQuietStructuralSiblings(filtered);
+  }
+
+  return filtered;
 }

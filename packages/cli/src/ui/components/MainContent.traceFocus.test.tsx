@@ -9,7 +9,7 @@ import { waitFor } from '../../test-utils/async.js';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Text } from 'ink';
 import { act, useState } from 'react';
-import { CoreToolCallStatus } from '@google/gemini-cli-core';
+import { CoreToolCallStatus, QuestionType } from '@google/gemini-cli-core';
 import { MainContent } from './MainContent.js';
 import type { UIState } from '../contexts/UIStateContext.js';
 import type { IndividualToolCallDisplay } from '../types.js';
@@ -19,17 +19,20 @@ import { StreamingState } from '../types.js';
 import { createMockSettings } from '../../test-utils/settings.js';
 
 const mocks = vi.hoisted(() => ({
-  traceTreeProps: null as
-    | {
-        isActive?: boolean;
-        isFocused?: boolean;
-        rootNodes: TraceNode[];
-        verbosity?: string;
-        detailView?: string;
-      }
-    | null,
+  traceTreeProps: null as {
+    isActive?: boolean;
+    isFocused?: boolean;
+    rootNodes: TraceNode[];
+    verbosity?: string;
+    categoryVerbosity?: Record<string, string>;
+    detailView?: string;
+  } | null,
   stepActionBarProps: null as { isActive?: boolean } | null,
-  toolConfirmationQueueProps: null as { confirmingTool: unknown } | null,
+  toolConfirmationQueueProps: null as {
+    confirmingTool: unknown;
+    isFocused?: boolean;
+  } | null,
+  toolConfirmationQueueFocus: undefined as boolean | undefined,
 }));
 
 vi.mock('./trace/TraceTree.js', () => ({
@@ -38,6 +41,7 @@ vi.mock('./trace/TraceTree.js', () => ({
     isFocused?: boolean;
     rootNodes: TraceNode[];
     verbosity?: string;
+    categoryVerbosity?: Record<string, string>;
     detailView?: string;
   }) => {
     mocks.traceTreeProps = props;
@@ -53,8 +57,12 @@ vi.mock('./trace/StepActionBar.js', () => ({
 }));
 
 vi.mock('./ToolConfirmationQueue.js', () => ({
-  ToolConfirmationQueue: (props: { confirmingTool: unknown }) => {
+  ToolConfirmationQueue: (props: {
+    confirmingTool: unknown;
+    isFocused?: boolean;
+  }) => {
     mocks.toolConfirmationQueueProps = props;
+    mocks.toolConfirmationQueueFocus = props.isFocused;
     return <Text>ToolConfirmationQueueMock</Text>;
   },
 }));
@@ -73,6 +81,122 @@ describe('MainContent trace focus behavior', () => {
     mocks.traceTreeProps = null;
     mocks.stepActionBarProps = null;
     mocks.toolConfirmationQueueProps = null;
+    mocks.toolConfirmationQueueFocus = undefined;
+  });
+
+  it('keeps approval focus by default and lets Tab hand arrows to the trace tree', async () => {
+    const confirmingTool: IndividualToolCallDisplay = {
+      ...toolCall,
+      status: CoreToolCallStatus.AwaitingApproval,
+      confirmationDetails: {
+        type: 'exec',
+        title: 'Confirm execution',
+        command: 'dir /s /b *config*',
+        rootCommand: 'dir',
+        rootCommands: ['dir'],
+      },
+    };
+
+    const { lastFrame, stdin, unmount } = renderWithProviders(<MainContent />, {
+      uiState: {
+        history: [{ id: 1, type: 'user', text: 'Trace config loading' }],
+        pendingHistoryItems: [
+          {
+            type: 'tool_group',
+            tools: [confirmingTool],
+          },
+        ],
+        streamingState: StreamingState.Responding,
+        isEditorDialogOpen: false,
+        embeddedShellFocused: false,
+        isInputActive: true,
+      } as Partial<UIState>,
+      useAlternateBuffer: false,
+    });
+
+    await waitFor(() =>
+      expect(lastFrame()).toContain('ToolConfirmationQueueMock'),
+    );
+    await waitFor(() => expect(lastFrame()).toContain('TraceTreeMock'));
+    expect(mocks.toolConfirmationQueueFocus).toBe(true);
+    expect(mocks.traceTreeProps?.isActive).toBe(false);
+    expect(mocks.traceTreeProps?.isFocused).toBe(false);
+
+    await act(async () => {
+      stdin.write('\t');
+    });
+
+    await waitFor(() => expect(mocks.toolConfirmationQueueFocus).toBe(false));
+    expect(mocks.traceTreeProps?.isActive).toBe(true);
+    expect(mocks.traceTreeProps?.isFocused).toBe(true);
+
+    await act(async () => {
+      stdin.write('\t');
+    });
+
+    await waitFor(() => expect(mocks.toolConfirmationQueueFocus).toBe(true));
+    expect(mocks.traceTreeProps?.isActive).toBe(false);
+    expect(mocks.traceTreeProps?.isFocused).toBe(false);
+
+    unmount();
+  });
+
+  it('keeps routine ask-user confirmations in control of the keyboard', async () => {
+    const confirmingTool: IndividualToolCallDisplay = {
+      ...toolCall,
+      status: CoreToolCallStatus.AwaitingApproval,
+      confirmationDetails: {
+        type: 'ask_user',
+        title: 'Answer config question',
+        questions: [
+          {
+            type: QuestionType.CHOICE,
+            header: 'Config',
+            question: 'Which config path should I inspect?',
+            options: [
+              {
+                label: 'CLI',
+                description: 'Inspect CLI config',
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    const { lastFrame, stdin, unmount } = renderWithProviders(<MainContent />, {
+      uiState: {
+        history: [{ id: 1, type: 'user', text: 'Trace config loading' }],
+        pendingHistoryItems: [
+          {
+            type: 'tool_group',
+            tools: [confirmingTool],
+          },
+        ],
+        streamingState: StreamingState.Responding,
+        isEditorDialogOpen: false,
+        embeddedShellFocused: false,
+        isInputActive: true,
+      } as Partial<UIState>,
+      useAlternateBuffer: false,
+    });
+
+    await waitFor(() =>
+      expect(lastFrame()).toContain('ToolConfirmationQueueMock'),
+    );
+    await waitFor(() => expect(lastFrame()).toContain('TraceTreeMock'));
+    expect(mocks.toolConfirmationQueueFocus).toBe(true);
+    expect(mocks.traceTreeProps?.isActive).toBe(false);
+
+    await act(async () => {
+      stdin.write('\t');
+    });
+
+    await waitFor(() => expect(mocks.toolConfirmationQueueFocus).toBe(true));
+    expect(mocks.traceTreeProps?.isActive).toBe(false);
+    expect(mocks.traceTreeProps?.isFocused).toBe(false);
+
+    unmount();
   });
 
   it('builds trace from current turn history only', async () => {
@@ -122,9 +246,7 @@ describe('MainContent trace focus behavior', () => {
     );
     expect(
       mocks.traceTreeProps?.rootNodes[0]?.children[0]?.children[0]?.id,
-    ).toBe(
-      'current-turn-call',
-    );
+    ).toBe('current-turn-call');
     expect(mocks.traceTreeProps?.verbosity).toBe('standard');
 
     unmount();
@@ -177,7 +299,6 @@ describe('MainContent trace focus behavior', () => {
     unmount();
   });
 
-
   it('preserves the latest trace when the underlying trace source clears at turn completion', async () => {
     const settings = createMockSettings({
       merged: {
@@ -215,18 +336,21 @@ describe('MainContent trace focus behavior', () => {
     };
 
     try {
-      const { lastFrame, unmount } = renderWithProviders(<TransitionHarness />, {
-        settings,
-        uiState: {
-          history: [
-            { id: 1, type: 'user', text: 'Analyze configuration loading' },
-          ],
-          pendingHistoryItems: [],
-          streamingState: StreamingState.Idle,
-          isInputActive: true,
-        } as Partial<UIState>,
-        useAlternateBuffer: false,
-      });
+      const { lastFrame, unmount } = renderWithProviders(
+        <TransitionHarness />,
+        {
+          settings,
+          uiState: {
+            history: [
+              { id: 1, type: 'user', text: 'Analyze configuration loading' },
+            ],
+            pendingHistoryItems: [],
+            streamingState: StreamingState.Idle,
+            isInputActive: true,
+          } as Partial<UIState>,
+          useAlternateBuffer: false,
+        },
+      );
 
       await waitFor(() => expect(lastFrame()).toContain('TraceTreeMock'));
 
@@ -428,7 +552,7 @@ describe('MainContent trace focus behavior', () => {
     unmount();
   });
 
-  it('keeps the trace tree interactive in standard mode when main content owns focus', async () => {
+  it('keeps the trace tree interactive in standard mode when main content owns focus, but disables inspector details for step mode', async () => {
     const { lastFrame, unmount } = renderWithProviders(<MainContent />, {
       uiState: {
         history: [{ id: 1, type: 'tool_group', tools: [toolCall] }],
@@ -443,6 +567,7 @@ describe('MainContent trace focus behavior', () => {
 
     await waitFor(() => expect(lastFrame()).toContain('TraceTreeMock'));
     expect(mocks.traceTreeProps?.isActive).toBe(true);
+    expect(mocks.traceTreeProps?.detailView).toBe('off');
     expect(lastFrame()).toContain('StepActionBarMock');
 
     unmount();
@@ -602,8 +727,7 @@ describe('MainContent trace focus behavior', () => {
     unmount();
   });
 
-
-  it('uses panel detail view for live standard-mode traces to keep the tree height stable', async () => {
+  it('keeps trace details off by default in live standard-mode traces', async () => {
     const settings = createMockSettings({
       merged: {
         ui: {
@@ -623,12 +747,51 @@ describe('MainContent trace focus behavior', () => {
     });
 
     await waitFor(() => expect(lastFrame()).toContain('TraceTreeMock'));
-    expect(mocks.traceTreeProps?.detailView).toBe('panel');
+    expect(mocks.traceTreeProps?.detailView).toBe('off');
 
     unmount();
   });
 
-  it('keeps panel detail view after the turn completes in standard mode', async () => {
+  it('uses panel detail view when trace inspector is explicitly enabled', async () => {
+    const previousInspectorEnv = process.env['GEMINI_TRACE_INSPECTOR'];
+    process.env['GEMINI_TRACE_INSPECTOR'] = 'true';
+
+    const settings = createMockSettings({
+      merged: {
+        ui: {
+          traceVerbosity: 'standard',
+        },
+      },
+    });
+
+    try {
+      const { lastFrame, unmount } = renderWithProviders(<MainContent />, {
+        settings,
+        uiState: {
+          history: [{ id: 1, type: 'tool_group', tools: [toolCall] }],
+          pendingHistoryItems: [],
+          streamingState: StreamingState.Responding,
+        } as Partial<UIState>,
+        useAlternateBuffer: false,
+      });
+
+      await waitFor(() => expect(lastFrame()).toContain('TraceTreeMock'));
+      expect(mocks.traceTreeProps?.detailView).toBe('panel');
+
+      unmount();
+    } finally {
+      if (previousInspectorEnv === undefined) {
+        delete process.env['GEMINI_TRACE_INSPECTOR'];
+      } else {
+        process.env['GEMINI_TRACE_INSPECTOR'] = previousInspectorEnv;
+      }
+    }
+  });
+
+  it('keeps panel detail view after the turn completes in standard mode when inspector is enabled', async () => {
+    const previousInspectorEnv = process.env['GEMINI_TRACE_INSPECTOR'];
+    process.env['GEMINI_TRACE_INSPECTOR'] = 'true';
+
     const completedTool: IndividualToolCallDisplay = {
       ...toolCall,
       callId: 'completed-panel-tool',
@@ -644,26 +807,123 @@ describe('MainContent trace focus behavior', () => {
       },
     });
 
+    try {
+      const { lastFrame, unmount } = renderWithProviders(<MainContent />, {
+        settings,
+        uiState: {
+          history: [
+            { id: 1, type: 'user', text: 'Inspect trace details' },
+            { id: 2, type: 'tool_group', tools: [completedTool] },
+          ],
+          pendingHistoryItems: [],
+          streamingState: StreamingState.Idle,
+          isInputActive: true,
+        } as Partial<UIState>,
+        useAlternateBuffer: false,
+      });
+
+      await waitFor(() => expect(lastFrame()).toContain('TraceTreeMock'));
+      expect(mocks.traceTreeProps?.detailView).toBe('panel');
+
+      unmount();
+    } finally {
+      if (previousInspectorEnv === undefined) {
+        delete process.env['GEMINI_TRACE_INSPECTOR'];
+      } else {
+        process.env['GEMINI_TRACE_INSPECTOR'] = previousInspectorEnv;
+      }
+    }
+  });
+  it('shows trace when a category override is more verbose than the global quiet mode', async () => {
+    const finalTool: IndividualToolCallDisplay = {
+      ...toolCall,
+      callId: 'category-override-tool',
+      status: CoreToolCallStatus.Success,
+      resultDisplay: 'done',
+    };
+
+    const settings = createMockSettings({
+      merged: {
+        ui: {
+          traceVerbosity: 'quiet',
+          traceToolVerbosity: 'verbose',
+        },
+      },
+    });
+
     const { lastFrame, unmount } = renderWithProviders(<MainContent />, {
       settings,
       uiState: {
         history: [
-          { id: 1, type: 'user', text: 'Inspect trace details' },
-          { id: 2, type: 'tool_group', tools: [completedTool] },
+          { id: 1, type: 'user', text: 'Inspect tool-specific verbosity' },
+          { id: 2, type: 'tool_group', tools: [finalTool] },
         ],
         pendingHistoryItems: [],
         streamingState: StreamingState.Idle,
-        isInputActive: true,
       } as Partial<UIState>,
       useAlternateBuffer: false,
     });
 
     await waitFor(() => expect(lastFrame()).toContain('TraceTreeMock'));
-    expect(mocks.traceTreeProps?.detailView).toBe('panel');
+    expect(mocks.traceTreeProps?.verbosity).toBe('quiet');
+    expect(mocks.traceTreeProps?.categoryVerbosity).toEqual({
+      tool: 'verbose',
+    });
 
     unmount();
   });
-  it('hides non-final trace nodes in quiet mode', async () => {
+
+  it('prefers category verbosity from CLI env overrides over settings', async () => {
+    const previousToolEnv = process.env['GEMINI_TRACE_TOOL_VERBOSITY'];
+    process.env['GEMINI_TRACE_TOOL_VERBOSITY'] = 'debug';
+
+    const finalTool: IndividualToolCallDisplay = {
+      ...toolCall,
+      callId: 'category-env-override-tool',
+      status: CoreToolCallStatus.Success,
+      resultDisplay: 'done',
+    };
+
+    const settings = createMockSettings({
+      merged: {
+        ui: {
+          traceVerbosity: 'quiet',
+          traceToolVerbosity: 'quiet',
+        },
+      },
+    });
+
+    try {
+      const { lastFrame, unmount } = renderWithProviders(<MainContent />, {
+        settings,
+        uiState: {
+          history: [
+            { id: 1, type: 'user', text: 'Inspect CLI verbosity overrides' },
+            { id: 2, type: 'tool_group', tools: [finalTool] },
+          ],
+          pendingHistoryItems: [],
+          streamingState: StreamingState.Idle,
+        } as Partial<UIState>,
+        useAlternateBuffer: false,
+      });
+
+      await waitFor(() => expect(lastFrame()).toContain('TraceTreeMock'));
+      expect(mocks.traceTreeProps?.verbosity).toBe('quiet');
+      expect(mocks.traceTreeProps?.categoryVerbosity).toEqual({
+        tool: 'debug',
+      });
+
+      unmount();
+    } finally {
+      if (previousToolEnv === undefined) {
+        delete process.env['GEMINI_TRACE_TOOL_VERBOSITY'];
+      } else {
+        process.env['GEMINI_TRACE_TOOL_VERBOSITY'] = previousToolEnv;
+      }
+    }
+  });
+
+  it('keeps the compact trace tree visible in quiet mode', async () => {
     const runningTool: IndividualToolCallDisplay = {
       ...toolCall,
       callId: 'running-tool',
@@ -678,22 +938,20 @@ describe('MainContent trace focus behavior', () => {
       },
     });
 
-    const { lastFrame, unmount } = renderWithProviders(
-      <MainContent />,
-      {
-        settings,
-        uiState: {
-          history: [{ id: 1, type: 'tool_group', tools: [runningTool] }],
-          pendingHistoryItems: [],
-          streamingState: StreamingState.Responding,
-        } as Partial<UIState>,
-        useAlternateBuffer: false,
-      },
-    );
+    const { lastFrame, unmount } = renderWithProviders(<MainContent />, {
+      settings,
+      uiState: {
+        history: [{ id: 1, type: 'tool_group', tools: [runningTool] }],
+        pendingHistoryItems: [],
+        streamingState: StreamingState.Responding,
+      } as Partial<UIState>,
+      useAlternateBuffer: false,
+    });
 
-    await waitFor(() => expect(lastFrame()).not.toContain('TraceTreeMock'));
+    await waitFor(() => expect(lastFrame()).toContain('TraceTreeMock'));
+    expect(mocks.traceTreeProps?.verbosity).toBe('quiet');
+    expect(mocks.traceTreeProps?.rootNodes.length).toBeGreaterThan(0);
 
     unmount();
   });
 });
-

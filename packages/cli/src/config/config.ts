@@ -97,6 +97,11 @@ export interface CliArgs {
   recordResponses: string | undefined;
   step: boolean | undefined;
   traceVerbosity?: string | undefined;
+  traceTaskVerbosity?: string | undefined;
+  traceDecisionVerbosity?: string | undefined;
+  traceSubagentVerbosity?: string | undefined;
+  traceToolVerbosity?: string | undefined;
+  traceInspector?: boolean | undefined;
   startupMessages?: string[];
   rawOutput: boolean | undefined;
   acceptRawOutputRisk: boolean | undefined;
@@ -183,7 +188,8 @@ export async function parseArguments(
         })
         .option('step', {
           type: 'boolean',
-          description: 'Enable step-through mode to interactively pause before execution of tools',
+          description:
+            'Enable step-through mode to interactively pause before execution of tools',
           default: false,
         })
         .option('trace-verbosity', {
@@ -192,6 +198,40 @@ export async function parseArguments(
           choices: ['quiet', 'standard', 'verbose', 'debug'],
           description:
             'Set trace verbosity: quiet, standard, verbose, or debug.',
+        })
+        .option('trace-task-verbosity', {
+          type: 'string',
+          nargs: 1,
+          choices: ['quiet', 'standard', 'verbose', 'debug'],
+          description:
+            'Override trace verbosity for task nodes: quiet, standard, verbose, or debug.',
+        })
+        .option('trace-decision-verbosity', {
+          type: 'string',
+          nargs: 1,
+          choices: ['quiet', 'standard', 'verbose', 'debug'],
+          description:
+            'Override trace verbosity for decision nodes: quiet, standard, verbose, or debug.',
+        })
+        .option('trace-subagent-verbosity', {
+          type: 'string',
+          nargs: 1,
+          choices: ['quiet', 'standard', 'verbose', 'debug'],
+          description:
+            'Override trace verbosity for subagent nodes: quiet, standard, verbose, or debug.',
+        })
+        .option('trace-tool-verbosity', {
+          type: 'string',
+          nargs: 1,
+          choices: ['quiet', 'standard', 'verbose', 'debug'],
+          description:
+            'Override trace verbosity for tool nodes: quiet, standard, verbose, or debug.',
+        })
+        .option('trace-inspector', {
+          type: 'boolean',
+          description:
+            'Enable trace inspector/details UI for focused inspection demos.',
+          default: false,
         })
         .option('policy', {
           type: 'array',
@@ -449,6 +489,29 @@ export async function loadCliConfig(
   } else {
     delete process.env['GEMINI_TRACE_VERBOSITY'];
   }
+
+  const traceCategoryEnvOverrides = [
+    ['traceTaskVerbosity', 'GEMINI_TRACE_TASK_VERBOSITY'],
+    ['traceDecisionVerbosity', 'GEMINI_TRACE_DECISION_VERBOSITY'],
+    ['traceSubagentVerbosity', 'GEMINI_TRACE_SUBAGENT_VERBOSITY'],
+    ['traceToolVerbosity', 'GEMINI_TRACE_TOOL_VERBOSITY'],
+  ] as const;
+
+  for (const [argvKey, envKey] of traceCategoryEnvOverrides) {
+    const value = argv[argvKey];
+    if (value) {
+      process.env[envKey] = value;
+    } else {
+      delete process.env[envKey];
+    }
+  }
+
+  if (argv.traceInspector) {
+    process.env['GEMINI_TRACE_INSPECTOR'] = 'true';
+  } else {
+    delete process.env['GEMINI_TRACE_INSPECTOR'];
+  }
+
   const debugMode = isDebugMode(argv);
 
   const loadedSettings = loadSettings(cwd);

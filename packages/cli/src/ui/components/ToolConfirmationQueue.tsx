@@ -35,10 +35,12 @@ function getConfirmationHeader(
 
 interface ToolConfirmationQueueProps {
   confirmingTool: ConfirmingToolState;
+  isFocused?: boolean;
 }
 
 export const ToolConfirmationQueue: React.FC<ToolConfirmationQueueProps> = ({
   confirmingTool,
+  isFocused = true,
 }) => {
   const config = useConfig();
   const { getPreferredEditor } = useUIActions();
@@ -126,10 +128,6 @@ export const ToolConfirmationQueue: React.FC<ToolConfirmationQueueProps> = ({
           flexDirection="column"
         >
           {/* Interactive Area */}
-          {/*
-            Note: We force isFocused={true} because if this component is rendered,
-            it effectively acts as a modal over the shell/composer.
-          */}
           <ToolConfirmationMessage
             callId={tool.callId}
             confirmationDetails={tool.confirmationDetails}
@@ -137,7 +135,7 @@ export const ToolConfirmationQueue: React.FC<ToolConfirmationQueueProps> = ({
             getPreferredEditor={getPreferredEditor}
             terminalWidth={mainAreaWidth - 4} // Adjust for parent border/padding
             availableTerminalHeight={availableContentHeight}
-            isFocused={true}
+            isFocused={isFocused}
           />
         </Box>
         <Box

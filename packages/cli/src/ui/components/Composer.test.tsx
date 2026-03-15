@@ -370,6 +370,62 @@ describe('Composer', () => {
       expect(output).toContain('LoadingIndicator: Processing');
     });
 
+    it('shows a stable live trace status in standard mode while keeping the prompt visible', async () => {
+      const uiState = createMockUIState({
+        streamingState: StreamingState.Responding,
+        thought: {
+          subject: 'Processing',
+          description: 'Processing your request...',
+        },
+        pendingHistoryItems: [
+          {
+            type: 'thinking',
+            thought: {
+              subject: 'Trace the CLI path',
+              description: '',
+            },
+          },
+        ],
+      });
+
+      const { lastFrame } = await renderComposer(uiState);
+
+      const output = lastFrame();
+      expect(output).toContain(
+        'Run in progress. Inspect the task trace above.',
+      );
+      expect(output).not.toContain('LoadingIndicator');
+      expect(output).toContain('InputPrompt');
+    });
+
+    it('keeps the animated loading indicator in alternate buffer mode', async () => {
+      composerTestControls.isAlternateBuffer = true;
+      const uiState = createMockUIState({
+        streamingState: StreamingState.Responding,
+        thought: {
+          subject: 'Processing',
+          description: 'Processing your request...',
+        },
+        pendingHistoryItems: [
+          {
+            type: 'thinking',
+            thought: {
+              subject: 'Trace the CLI path',
+              description: '',
+            },
+          },
+        ],
+      });
+
+      const { lastFrame } = await renderComposer(uiState);
+
+      const output = lastFrame();
+      expect(output).toContain('LoadingIndicator: Processing');
+      expect(output).not.toContain(
+        'Run in progress. Inspect the task trace above.',
+      );
+    });
+
     it('renders generic thinking text in loading indicator when full inline thinking is enabled', async () => {
       const uiState = createMockUIState({
         streamingState: StreamingState.Responding,

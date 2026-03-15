@@ -108,7 +108,7 @@ export const StepActionBar: FC<StepActionBarProps> = ({
 
   useKeypress(handleKeypress, {
     isActive: isActive && !!pendingNode,
-    priority: KeypressPriority.High,
+    priority: KeypressPriority.Critical,
   });
 
   if (!pendingNode) {
@@ -141,7 +141,9 @@ export const StepActionBar: FC<StepActionBarProps> = ({
           {pendingNode.name}
         </Text>
         {pendingNode.description && (
-          <Text color={theme.text.secondary}>{` - ${pendingNode.description}`}</Text>
+          <Text
+            color={theme.text.secondary}
+          >{` - ${pendingNode.description}`}</Text>
         )}
       </Box>
 

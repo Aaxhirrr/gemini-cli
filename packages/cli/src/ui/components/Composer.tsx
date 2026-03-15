@@ -84,6 +84,13 @@ export const Composer = ({ isFocused = true }: { isFocused?: boolean }) => {
     Boolean(uiState.quota.proQuotaRequest) ||
     Boolean(uiState.quota.validationRequest) ||
     Boolean(uiState.customDialog);
+  const hasLiveTraceActivity = useMemo(
+    () =>
+      (uiState.pendingHistoryItems ?? []).some(
+        (item) => item.type === 'tool_group' || item.type === 'thinking',
+      ) || (uiState.pendingToolCalls?.length ?? 0) > 0,
+    [uiState.pendingHistoryItems, uiState.pendingToolCalls],
+  );
   const isPassiveShortcutsHelpState =
     uiState.isInputActive &&
     uiState.streamingState === StreamingState.Idle &&
@@ -106,10 +113,16 @@ export const Composer = ({ isFocused = true }: { isFocused?: boolean }) => {
     uiState.streamingState === StreamingState.Idle &&
     !hasPendingActionRequired;
   const hasToast = shouldShowToast(uiState);
+  const showStableLiveTraceStatus =
+    !isAlternateBuffer &&
+    uiState.streamingState === StreamingState.Responding &&
+    !hasPendingActionRequired &&
+    hasLiveTraceActivity;
   const showLoadingIndicator =
     (!uiState.embeddedShellFocused || uiState.isBackgroundShellVisible) &&
     uiState.streamingState === StreamingState.Responding &&
-    !hasPendingActionRequired;
+    !hasPendingActionRequired &&
+    !showStableLiveTraceStatus;
   const hideUiDetailsForSuggestions =
     suggestionsVisible && suggestionsPosition === 'above';
   const showApprovalIndicator =
@@ -178,6 +191,8 @@ export const Composer = ({ isFocused = true }: { isFocused?: boolean }) => {
   const showMinimalModeBleedThrough =
     !hideUiDetailsForSuggestions && Boolean(minimalModeBleedThrough);
   const showMinimalInlineLoading = !showUiDetails && showLoadingIndicator;
+  const showMinimalStableTraceStatus =
+    !showUiDetails && showStableLiveTraceStatus;
   const showMinimalBleedThroughRow =
     !showUiDetails &&
     (showMinimalModeBleedThrough ||
@@ -186,6 +201,7 @@ export const Composer = ({ isFocused = true }: { isFocused?: boolean }) => {
   const showMinimalMetaRow =
     !showUiDetails &&
     (showMinimalInlineLoading ||
+      showMinimalStableTraceStatus ||
       showMinimalBleedThroughRow ||
       shouldReserveSpaceForShortcutsHint);
 
@@ -224,6 +240,12 @@ export const Composer = ({ isFocused = true }: { isFocused?: boolean }) => {
             alignItems={isNarrow ? 'flex-start' : 'center'}
             flexGrow={1}
           >
+            {showUiDetails && showStableLiveTraceStatus && (
+              <Text color={theme.text.secondary}>
+                Run in progress. Inspect the task trace above. Press Esc to
+                cancel.
+              </Text>
+            )}
             {showUiDetails && showLoadingIndicator && (
               <LoadingIndicator
                 inline
@@ -270,6 +292,11 @@ export const Composer = ({ isFocused = true }: { isFocused?: boolean }) => {
               alignItems={isNarrow ? 'flex-start' : 'center'}
               flexGrow={1}
             >
+              {showMinimalStableTraceStatus && (
+                <Text color={theme.text.secondary}>
+                  Run in progress. Inspect the task trace above.
+                </Text>
+              )}
               {showMinimalInlineLoading && (
                 <LoadingIndicator
                   inline

@@ -147,6 +147,29 @@ const pathArraySetting = (label: string, description: string) => ({
   mergeStrategy: MergeStrategy.UNION,
 });
 
+const TRACE_VERBOSITY_OPTIONS = [
+  { value: 'quiet', label: 'Quiet' },
+  { value: 'standard', label: 'Standard' },
+  { value: 'verbose', label: 'Verbose' },
+  { value: 'debug', label: 'Debug' },
+] as const;
+
+const TRACE_CATEGORY_VERBOSITY_OPTIONS = [
+  { value: 'inherit', label: 'Inherit' },
+  ...TRACE_VERBOSITY_OPTIONS,
+] as const;
+
+const traceCategoryVerbositySetting = (label: string, description: string) => ({
+  type: 'enum' as const,
+  label,
+  category: 'UI' as const,
+  requiresRestart: false as const,
+  default: 'inherit' as const,
+  description,
+  showInDialog: true as const,
+  options: TRACE_CATEGORY_VERBOSITY_OPTIONS,
+});
+
 /**
  * The canonical schema for all settings.
  * The structure of this object defines the structure of the `Settings` type.
@@ -766,15 +789,26 @@ const SETTINGS_SCHEMA = {
         requiresRestart: false,
         default: 'standard',
         description:
-          'Controls trace detail level: quiet (final states), standard (active steps + key outcomes), verbose (full trace), debug (full trace + internals).',
+          'Controls trace detail level: quiet (compact tree with minimal tool detail), standard (active steps + key outcomes), verbose (full trace), debug (full trace + internals).',
         showInDialog: true,
-        options: [
-          { value: 'quiet', label: 'Quiet' },
-          { value: 'standard', label: 'Standard' },
-          { value: 'verbose', label: 'Verbose' },
-          { value: 'debug', label: 'Debug' },
-        ],
+        options: TRACE_VERBOSITY_OPTIONS,
       },
+      traceTaskVerbosity: traceCategoryVerbositySetting(
+        'Trace Task Verbosity',
+        'Overrides the default trace verbosity for top-level task nodes.',
+      ),
+      traceDecisionVerbosity: traceCategoryVerbositySetting(
+        'Trace Decision Verbosity',
+        'Overrides the default trace verbosity for decision and phase nodes.',
+      ),
+      traceSubagentVerbosity: traceCategoryVerbositySetting(
+        'Trace Subagent Verbosity',
+        'Overrides the default trace verbosity for subagent nodes.',
+      ),
+      traceToolVerbosity: traceCategoryVerbositySetting(
+        'Trace Tool Verbosity',
+        'Overrides the default trace verbosity for tool call nodes.',
+      ),
       customWittyPhrases: {
         type: 'array',
         label: 'Custom Witty Phrases',
