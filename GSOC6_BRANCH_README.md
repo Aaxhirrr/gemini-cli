@@ -40,57 +40,6 @@ idea in a concrete, runnable way:
 I do not want to overstate the maturity of this branch. This is a serious
 prototype, not a finished upstream feature set.
 
-## Screenshots
-
-I documented the branch with screenshots because standard scrollback rendering
-still flickers in some terminal environments during heavy live updates. For the
-proposal, screenshots were the clearest and most stable way to show the current
-state of the work.
-
-### Demo 1: Live Task Tree
-
-![Demo 1: Live task tree](./docs/assets/gsoc6/demo-1-live-task-tree.png)
-
-This shows the execution tree forming while the task is still running.
-
-### Demo 2: Step-Through Mode
-
-![Demo 2: Step-through approval](./docs/assets/gsoc6/demo-2-step-through.png)
-
-This shows the user pausing on an action while the task trace remains visible.
-
-### Demo 3: Inspector and Rich Detail Rendering
-
-![Demo 3: Inspector](./docs/assets/gsoc6/demo-3-inspector.png)
-
-This shows the inspector attached to a selected trace node rather than dumping
-details into unrelated terminal output.
-
-### Demo 4: Nested Failure Visualization
-
-![Demo 4: Nested failure](./docs/assets/gsoc6/demo-4-nested-failure.png)
-
-This shows a failure localized to the correct branch in the execution tree.
-
-### Demo 5: Verbosity Controls
-
-<table>
-  <tr>
-    <td align="center"><strong>Quiet</strong></td>
-    <td align="center"><strong>Standard</strong></td>
-    <td align="center"><strong>Verbose</strong></td>
-    <td align="center"><strong>Debug</strong></td>
-  </tr>
-  <tr>
-    <td><img src="./docs/assets/gsoc6/demo-5-quiet.png" alt="Quiet mode" width="240"></td>
-    <td><img src="./docs/assets/gsoc6/demo-5-standard.png" alt="Standard mode" width="240"></td>
-    <td><img src="./docs/assets/gsoc6/demo-5-verbose.png" alt="Verbose mode" width="240"></td>
-    <td><img src="./docs/assets/gsoc6/demo-5-debug.png" alt="Debug mode" width="240"></td>
-  </tr>
-</table>
-
-This shows the same task rendered at four global verbosity levels.
-
 ## Running The Branch
 
 If someone wants to try this branch locally, the simplest path is to clone my
@@ -211,6 +160,57 @@ includes:
 - `--trace-subagent-verbosity`
 - `--trace-tool-verbosity`
 - `--trace-inspector`
+
+## Screenshots
+
+I documented the branch with screenshots because standard scrollback rendering
+still flickers in some terminal environments during heavy live updates. For the
+proposal, screenshots were the clearest and most stable way to show the current
+state of the work.
+
+### Demo 1: Live Task Tree
+
+![Demo 1: Live task tree](./docs/assets/gsoc6/demo-1-live-task-tree.png)
+
+This shows the execution tree forming while the task is still running.
+
+### Demo 2: Step-Through Mode
+
+![Demo 2: Step-through approval](./docs/assets/gsoc6/demo-2-step-through.png)
+
+This shows the user pausing on an action while the task trace remains visible.
+
+### Demo 3: Inspector and Rich Detail Rendering
+
+![Demo 3: Inspector](./docs/assets/gsoc6/demo-3-inspector.png)
+
+This shows the inspector attached to a selected trace node rather than dumping
+details into unrelated terminal output.
+
+### Demo 4: Nested Failure Visualization
+
+![Demo 4: Nested failure](./docs/assets/gsoc6/demo-4-nested-failure.png)
+
+This shows a failure localized to the correct branch in the execution tree.
+
+### Demo 5: Verbosity Controls
+
+<table>
+  <tr>
+    <td align="center"><strong>Quiet</strong></td>
+    <td align="center"><strong>Standard</strong></td>
+    <td align="center"><strong>Verbose</strong></td>
+    <td align="center"><strong>Debug</strong></td>
+  </tr>
+  <tr>
+    <td><img src="./docs/assets/gsoc6/demo-5-quiet.png" alt="Quiet mode" width="240"></td>
+    <td><img src="./docs/assets/gsoc6/demo-5-standard.png" alt="Standard mode" width="240"></td>
+    <td><img src="./docs/assets/gsoc6/demo-5-verbose.png" alt="Verbose mode" width="240"></td>
+    <td><img src="./docs/assets/gsoc6/demo-5-debug.png" alt="Debug mode" width="240"></td>
+  </tr>
+</table>
+
+This shows the same task rendered at four global verbosity levels.
 
 ## What I Changed
 
