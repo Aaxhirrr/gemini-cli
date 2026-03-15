@@ -1,93 +1,58 @@
-# GSoC 2026 Discussion Post Draft
+# PoC Branch Submission (Open for Discussion)
 
-**Suggested title:** GSoC 2026 Proposal: Interactive Progress Visualization &
-Task Stepping for Gemini CLI
+**Suggested title:** PoC Branch Submission (Open for Discussion): GSoC Idea 6 -
+Interactive Progress Visualization & Task Stepping
 
-Hi everyone,
+Hi everyone, Aashir here,
 
-I am preparing a GSoC 2026 proposal around **Idea 6: Interactive Progress
-Visualization & Task Stepping** for Gemini CLI.
+I wanted to share my **proof-of-concept branch** for **GSoC Idea 6: Interactive
+Progress Visualization & Task Stepping** in Gemini CLI.
 
-The core motivation behind this proposal is that complex Gemini CLI runs can
-still feel like a black box in the terminal. Users often get the final answer,
-but they do not always get a clear, structured sense of what the agent is doing
-while it works through a multi-step task. My proposal focuses on making that
-process more visible, inspectable, and interactive directly inside the existing
-Ink-based terminal UI.
+This is **not intended as a merge-ready final patch**. I am sharing it early so
+I can get feedback on the overall direction, scope, interaction model, and how
+well this approach matches the expected outcomes for the project idea.
 
-I put together a working prototype branch for this idea and documented it with a
-dedicated branch README that includes the implementation summary, demo commands,
-screenshots for each expected outcome, and current limitations.
+I integrated the work directly into the Gemini CLI codebase rather than building
+it as a separate mock app, because I wanted to validate that these ideas can
+work end-to-end inside the existing Ink terminal UI and real CLI workflows.
 
-**Branch:**
+I know this is **far from perfect right now**. There are still rough edges, and
+I am treating this as a proposal-style validation branch rather than a finished
+implementation.
 
-- https://github.com/Aaxhirrr/gemini-cli/tree/gsoc6-progress-20260312
+I have already contributed to `gemini-cli`, and I would really love the chance
+to work on this officially through GSoC, iterate with maintainer feedback, and
+help push it toward a production-quality state.
 
-**Proposal branch README with screenshots and demo guide:**
+## What I'm Demonstrating
 
-- https://github.com/Aaxhirrr/gemini-cli/blob/gsoc6-progress-20260312/GSOC6_BRANCH_README.md
+- Real-time task tree visualization in the Ink TUI
+- Step-through mode for pausing and approving actions during execution
+- Inspector-based rendering for richer tool inputs, outputs, and metadata
+- Improved nested failure visibility inside the execution tree
+- User-configurable trace verbosity levels for different execution views
 
-Rather than putting a large screenshot dump directly into this discussion post,
-I kept the post focused and linked the full branch README above, where the
-screenshots and demo walkthroughs are organized by expected outcome.
+## Links
 
-## What the prototype in this branch covers
+- PoC branch:
+  https://github.com/Aaxhirrr/gemini-cli/tree/gsoc6-progress-20260312
+- Branch README with screenshots + demo guide:
+  https://github.com/Aaxhirrr/gemini-cli/blob/gsoc6-progress-20260312/GSOC6_BRANCH_README.md
+- Discussion draft source in branch:
+  https://github.com/Aaxhirrr/gemini-cli/blob/gsoc6-progress-20260312/GSOC6_DISCUSSION_POST.md
 
-This branch is built around the five expected outcomes listed in the project
-idea:
+Instead of embedding a large screenshot dump directly in this discussion post, I
+kept the screenshots and full walkthrough in the branch README above so
+everything stays organized in one place.
 
-1. **Real-time task tree visualization in the Ink TUI**
-   - The CLI renders a live execution tree while a task is still running.
-   - Instead of a flat stream of tool calls and thoughts, work is grouped into a
-     hierarchy of task, decision, subagent, and tool nodes.
+## Quick Demo Commands
 
-2. **Step-through mode where users approve individual tool calls or agent
-   decisions**
-   - The branch includes a step mode that pauses before execution and lets the
-     user explicitly continue through the run.
-   - The trace stays visible while approval is happening, so the user is not
-     making a decision in a disconnected confirmation prompt.
-
-3. **Rich-text rendering of tool inputs/outputs with collapsible sections**
-   - I added an inspector-based detail view for trace nodes.
-   - This makes it possible to select a node and inspect inputs, outputs,
-     metadata, and truncated sections in a more structured way.
-
-4. **Improved error state visualization for nested agent failures**
-   - Failure paths stay attached to the correct branch rather than surfacing as
-     generic terminal noise.
-   - This helps make nested tool or subagent failures feel more like debugger
-     breakpoints than stray errors.
-
-5. **User-configurable verbosity levels for different task categories**
-   - The branch supports global trace verbosity (`quiet`, `standard`, `verbose`,
-     `debug`).
-   - It also supports category-specific overrides through CLI flags for task,
-     decision, subagent, and tool nodes.
-
-## Why I think this is a good GSoC project
-
-I think this project is strong because it sits right at the intersection of:
-
-- real terminal UX problems
-- asynchronous UI state management in Ink
-- rendering and interaction challenges under live updates
-- meaningful improvements to user trust and control
-
-It is not just about making the interface look nicer. It is about giving users
-better mental models of what the agent is doing, when it is blocked, when it is
-failing, and when they should intervene.
-
-## Optional local demo
-
-If anyone wants to run the prototype locally, the branch README contains a full
-demo guide. A few representative commands are:
+From the repo root:
 
 ```bash
-# local help for the branch
 npm run start -- --help
 
-# Demo 1: real-time task tree
+# Demo 1: live task tree
 npm run start -- --trace-verbosity standard
 
 # Demo 2: step-through mode
@@ -96,6 +61,9 @@ npm run start -- --step --trace-verbosity standard
 # Demo 3: inspector/details
 npm run start -- --trace-verbosity standard --trace-inspector
 
+# Demo 4: nested failure path
+npm run start -- --trace-verbosity standard
+
 # Demo 5: verbosity comparison
 npm run start -- --trace-verbosity quiet
 npm run start -- --trace-verbosity standard
@@ -103,34 +71,42 @@ npm run start -- --trace-verbosity verbose
 npm run start -- --trace-verbosity debug
 ```
 
-The branch README includes the prompts I used for each demo and the screenshots
-for all five expected outcomes.
+The exact prompts used for each demo are listed in the branch README.
 
-## Current limitations
+## Important Note
 
-I also want to be honest about what is still rough in the prototype.
+I know the diff is large, but this is intentionally a **proposal-style PoC
+branch**. The goal here is to validate the UX direction and prove that these
+interaction patterns can work inside the existing CLI, not to present a final
+polished upstream patch.
 
-The main unresolved issue is **terminal flicker in standard scrollback mode
-under heavy live updates**, especially around the lower prompt/status area in
-some environments. Because of that, I chose to document the proposal primarily
-with screenshots in the branch README rather than relying on a polished live
-recording.
+The main known limitation right now is **terminal flicker in standard scrollback
+mode** under heavy live updates, especially around the lower prompt/status area
+in some environments. That is the main reason I chose to document this branch
+primarily through the README screenshots instead of a polished video demo.
 
-There are also places where the presentation tree still uses heuristics for
-branch naming. That is acceptable for a prototype and proposal branch, but it is
-not yet the final form of a fully general trace summarization system.
+I am very open to guidance on how this should be scoped, split, or restructured
+if the direction itself seems useful.
 
-## What I would like feedback on
+## Quick Intro
 
-I would especially appreciate feedback on:
+- I'm **Aashir Javed**, a Computer Science student at **Arizona State
+  University**.
+- I am applying for **Google Summer of Code 2026** and focused this PoC on
+  Gemini CLI UX/UI work.
+- My core stack is **Python, TypeScript, React, Node.js, FastAPI, AWS/GCP,
+  Docker, and LLM systems**.
+- I have already been contributing to `gemini-cli`, and I want this branch to
+  show both proposal seriousness and real codebase understanding.
 
-- whether this direction fits the spirit of Idea 6 well
-- whether the five expected outcomes are being interpreted correctly
-- whether the proposed demo breakdown is a strong way to present the work
-- which parts feel most valuable to prioritize if the project moves forward
+## Feedback I'm Looking For
 
-If it is helpful, I can also follow up with a more implementation-focused
-breakdown, but I wanted this post to stay focused on the prototype branch, the
-proposal mapping, and the user-facing UX direction.
+- Does this direction fit the spirit of Idea 6 well?
+- Does the demo breakdown map cleanly to the five expected outcomes?
+- Which parts feel most valuable to prioritize if this moves forward?
+- Are there places where the current interaction model should be simplified?
 
-Thanks.
+Excited for any feedback, from maintainers and contributors alike. Feel free to
+be blunt about scope, UX tradeoffs, or architecture concerns.
+
+Thanks for taking a look.
