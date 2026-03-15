@@ -93,12 +93,25 @@ This shows the same task rendered at four global verbosity levels.
 
 ## Running The Branch
 
-From the repository root:
+If someone wants to try this branch locally, the simplest path is to clone my
+fork directly onto the GSoC branch:
 
 ```bash
+git clone --branch gsoc6-progress-20260312 --single-branch https://github.com/Aaxhirrr/gemini-cli.git
+cd gemini-cli
 npm install
 npm run build --workspace @google/gemini-cli
 npm run start -- --help
+```
+
+If they already have a local checkout, they can fetch the branch instead:
+
+```bash
+git remote add aaxhirrr https://github.com/Aaxhirrr/gemini-cli.git
+git fetch aaxhirrr gsoc6-progress-20260312
+git checkout -b gsoc6-progress-20260312 aaxhirrr/gsoc6-progress-20260312
+npm install
+npm run build --workspace @google/gemini-cli
 ```
 
 In my local setup, the repository-local command path was the reliable one:

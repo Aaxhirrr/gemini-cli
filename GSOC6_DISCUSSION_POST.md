@@ -45,6 +45,25 @@ Instead of embedding a large screenshot dump directly in this discussion post, I
 kept the screenshots and full walkthrough in the branch README above so
 everything stays organized in one place.
 
+## How To Try The Branch
+
+If anyone wants to run the PoC locally, the shortest path is:
+
+```bash
+git clone --branch gsoc6-progress-20260312 --single-branch https://github.com/Aaxhirrr/gemini-cli.git
+cd gemini-cli
+npm install
+npm run build --workspace @google/gemini-cli
+```
+
+If someone already has a local checkout, they can fetch the branch instead:
+
+```bash
+git remote add aaxhirrr https://github.com/Aaxhirrr/gemini-cli.git
+git fetch aaxhirrr gsoc6-progress-20260312
+git checkout -b gsoc6-progress-20260312 aaxhirrr/gsoc6-progress-20260312
+```
+
 ## Quick Demo Commands
 
 From the repo root:
