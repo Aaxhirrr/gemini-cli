@@ -149,7 +149,7 @@ expected outcome.
 Command:
 
 ```bash
-npm run start -- --trace-verbosity standard
+npm run start
 ```
 
 Prompt:
@@ -170,7 +170,7 @@ What to look for:
 Command:
 
 ```bash
-npm run start -- --step --trace-verbosity standard
+npm run start -- --step
 ```
 
 Prompt:
