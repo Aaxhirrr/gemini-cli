@@ -2,8 +2,6 @@
 
 Branch: `gsoc6-progress-20260312`
 
-Commit: `55c162ce7`
-
 This branch packages the work done for the GSoC 2026 proposal around Idea 6,
 `Interactive Progress Visualization & Task Stepping`.
 
@@ -32,13 +30,13 @@ showing a realistic implementation path in the existing codebase.
 
 ## Expected Outcomes Covered
 
-| Expected outcome                                                               | Status in this branch | Notes                                                                    |
-| ------------------------------------------------------------------------------ | --------------------- | ------------------------------------------------------------------------ |
-| Real-time task tree visualization in the Ink TUI                               | Implemented           | Live execution tree with task, decision, subagent, and tool hierarchy    |
-| Step-through mode where users approve individual tool calls or agent decisions | Implemented           | Keyboard-driven step mode with clearer priority than the trace inspector |
-| Rich-text rendering of tool inputs/outputs with collapsible sections           | Implemented           | Inspector-based details with compact and expanded modes                  |
-| Improved error state visualization for nested agent failures                   | Implemented           | Failure path stays localized to the correct branch and node              |
-| User-configurable verbosity levels for different task categories               | Implemented           | Global verbosity plus per-category overrides and CLI flags               |
+| Expected outcome                                                               | Status in this branch     | Notes                                                                    |
+| ------------------------------------------------------------------------------ | ------------------------- | ------------------------------------------------------------------------ |
+| Real-time task tree visualization in the Ink TUI                               | Demonstrated in prototype | Live execution tree with task, decision, subagent, and tool hierarchy    |
+| Step-through mode where users approve individual tool calls or agent decisions | Demonstrated in prototype | Keyboard-driven step mode with clearer priority than the trace inspector |
+| Rich-text rendering of tool inputs/outputs with collapsible sections           | Demonstrated in prototype | Inspector-based details with compact and expanded modes                  |
+| Improved error state visualization for nested agent failures                   | Demonstrated in prototype | Failure path stays localized to the correct branch and node              |
+| User-configurable verbosity levels for different task categories               | Demonstrated in prototype | Global verbosity plus per-category overrides and CLI flags               |
 
 ## Validation Status
 
@@ -57,7 +55,7 @@ npm run test --workspace @google/gemini-cli -- src/config/config.test.ts src/con
 ## Screenshot Overview
 
 For proposal clarity, the branch is documented with screenshots captured from
-the working implementation. A live recording was intentionally not used as the
+the working prototype. A live recording was intentionally not used as the
 primary artifact because standard scrollback rendering still flickers in some
 terminal environments during heavy live updates.
 
@@ -405,9 +403,9 @@ npm run start -- --trace-verbosity debug
 ## Final Notes
 
 This branch is meant to make the proposal concrete. It does not just describe
-the five expected outcomes in abstract terms; it implements them in the existing
-Gemini CLI UI stack, validates them with tests, and documents them with
-reproducible commands and screenshots.
+the five expected outcomes in abstract terms; it prototypes them in the existing
+Gemini CLI UI stack, validates the interaction model with tests, and documents
+the current state with reproducible commands and screenshots.
 
 For proposal review, the screenshots in this document are the cleanest summary
 artifact. For deeper inspection, the branch itself contains the implementation,
