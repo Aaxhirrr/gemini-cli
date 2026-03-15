@@ -104,7 +104,7 @@ npm run build --workspace @google/gemini-cli
 npm run start -- --help
 ```
 
-If they already have a local checkout, they can fetch the branch instead:
+If you already have a local checkout, you can fetch the branch instead:
 
 ```bash
 git remote add aaxhirrr https://github.com/Aaxhirrr/gemini-cli.git
