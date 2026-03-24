@@ -815,6 +815,10 @@ export function resolveModelMatrix(
     return [explicitModel];
   }
 
+  if (process.env['LONG_CONTEXT_BENCHMARK_USE_FAKE_RESPONSES'] === 'true') {
+    return ['deterministic-fake'];
+  }
+
   if (mode === 'smoke') {
     return ['deterministic-fake'];
   }
@@ -1086,17 +1090,40 @@ async function provisionFromGitSource(
     );
   }
 
-  const cloneResult = await executeCommand(
-    `git clone --quiet "${sourceUrl}" "${workspaceDir}"`,
-    {
-      cwd: REPO_ROOT,
-    },
-  );
+  const snapshotFiles = repository.spec.fixtureRoot
+    ? await collectRelativeFiles(repository.sourceRoot)
+    : [];
+  const useSparseClone = snapshotFiles.length > 0;
+
+  const cloneCommand = useSparseClone
+    ? `git clone --quiet --filter=blob:none --no-checkout --depth 1 --sparse "${sourceUrl}" "${workspaceDir}"`
+    : `git clone --quiet "${sourceUrl}" "${workspaceDir}"`;
+
+  const cloneResult = await executeCommand(cloneCommand, {
+    cwd: REPO_ROOT,
+  });
 
   if (cloneResult.exitCode !== 0) {
     throw new BenchmarkError(
       `Failed to clone ${sourceUrl}: ${cloneResult.stderr || cloneResult.stdout}`,
     );
+  }
+
+  if (useSparseClone) {
+    const sparsePaths = snapshotFiles.map((filePath) => `/${filePath}`);
+    const sparseResult = await executeCommand(
+      `git sparse-checkout set --no-cone ${sparsePaths
+        .map((filePath) => `"${filePath}"`)
+        .join(' ')}`,
+      { cwd: workspaceDir },
+    );
+    if (sparseResult.exitCode !== 0) {
+      throw new BenchmarkError(
+        `Failed to configure sparse checkout for ${repository.spec.repositoryId}: ${
+          sparseResult.stderr || sparseResult.stdout
+        }`,
+      );
+    }
   }
 
   if (repository.spec.source?.pinnedCommit) {
@@ -1110,6 +1137,22 @@ async function provisionFromGitSource(
       );
     }
   }
+}
+
+async function collectRelativeFiles(rootDir: string, currentDir = rootDir) {
+  const entries = await fs.readdir(currentDir, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(currentDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await collectRelativeFiles(rootDir, fullPath)));
+    } else if (entry.isFile()) {
+      files.push(path.relative(rootDir, fullPath).replace(/\\/g, '/'));
+    }
+  }
+
+  return files;
 }
 
 async function extractArchive(
@@ -1190,8 +1233,14 @@ export async function provisionWorkspace(repository: LoadedRepository) {
   const sourceKind =
     repository.spec.source?.kind ||
     (repository.spec.fixtureRoot ? 'fixture' : 'synthetic');
+  const preferLocalFixtureSnapshot =
+    !!repository.spec.fixtureRoot &&
+    process.env['LONG_CONTEXT_BENCHMARK_FORCE_REMOTE'] !== 'true';
 
-  if (sourceKind === 'git') {
+  if (preferLocalFixtureSnapshot) {
+    await copyDirectory(repository.sourceRoot, workspaceDir);
+    await initializeWorkspaceGitRepo(workspaceDir);
+  } else if (sourceKind === 'git') {
     await provisionFromGitSource(repository, workspaceDir);
   } else if (sourceKind === 'archive') {
     await provisionFromArchive(repository, workspaceDir);

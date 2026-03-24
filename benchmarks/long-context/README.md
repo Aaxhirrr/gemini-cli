@@ -16,11 +16,13 @@ up against a stable on-disk contract before broader integration lands.
 - `repos/<repo-id>/tasks/<task-id>/`: one task per directory with `task.json`,
   `prompt.md`, `curator-notes.md`, and optional validator assets.
 - `fixtures/`: local synthetic source trees that tasks operate on.
+- `snapshots/`: pinned multi-file extracts from real open-source repositories
+  used for lightweight runnable benchmark tasks.
 
 ## Seed contents
 
 The initial slice includes one local synthetic monorepo fixture under
-`fixtures/local-monorepo` and one cross-file task under
+`fixtures/local-monorepo` and one cross-file code-change task under
 `repos/local-monorepo/tasks/auth-refresh-window`.
 
 The intake corpus also includes real Git-backed repository records for:
@@ -36,8 +38,15 @@ The intake corpus also includes real Git-backed repository records for:
 - `dotnet/aspnetcore`
 - `rust-lang/rust`
 
-Each real repository folder also includes a `candidate-tasks.md` note with one
-initial long-context extraction direction to guide future task curation.
+Each real repository folder also includes:
+
+- one runnable analysis task under `repos/<repo-id>/tasks/`
+- one pinned source snapshot under `snapshots/<repo-id>/`
+- one `candidate-tasks.md` note with deeper future extraction directions
+
+The real-repo runnable slice currently focuses on architecture-map tasks so the
+benchmark can exercise Gemini CLI against real source trees in a lightweight,
+repeatable way before deeper code-change task curation is finished.
 
 The task is designed to feel realistic without being huge: it spreads across
 docs, config, API code, a worker, and a web hook so future runner work can
@@ -65,10 +74,10 @@ The seed task also demonstrates the runner execution contract:
 
 - Every JSON file carries a `$schema` pointer into `schemas/`.
 - Paths inside JSON files are relative to the file that declares them.
-- `repository.json` points at the fixture root under `fixtures/`.
-- Git-backed repositories can omit `fixtureRoot` during intake and rely on
-  `source.kind = "git"` with a pinned remote commit until task extraction
-  begins.
+- `repository.json` points at either `fixtures/` or `snapshots/`.
+- Git-backed repositories can carry a local `fixtureRoot` snapshot for
+  reproducible in-repo execution while still preserving the upstream URL and
+  pinned commit in `source`.
 - `task.json` points at `prompt.md`, `curator-notes.md`, and any optional task
   validator file relative to the task directory.
 
@@ -90,15 +99,15 @@ example to copy.
 
 - Treat fixtures as immutable snapshots. Add new tasks or new fixture roots
   instead of casually mutating shared starting states.
-- Real repository intake can happen before task extraction. Repositories with no
-  tasks are metadata-only onboarding records and are intentionally excluded from
-  smoke validation unless explicitly targeted.
+- Real repository intake can happen before deeper task extraction, but the repo
+  now also ships a manual `real-repo-analysis` shard with 10 runnable tasks.
 - Run `npm run bench:long-context:intake-summary` to generate a markdown and
   JSON summary of the currently onboarded repository corpus.
+- Run `npm run bench:long-context:real-repo-analysis` to execute the 10-task
+  real-repo shard with deterministic fake responses.
 - Keep prompts short and realistic. Put structure in `task.json` and leave the
   prose in `prompt.md`.
-- Use only synthetic or sanitized content here. Do not copy production
-  repositories or datasets.
+- Use only synthetic, sanitized, or public open-source benchmark content here.
 - When the task or repository document shape changes, update the matching schema
   and keep `schemaVersion` honest.
 - The manifest's `curationRubric` encodes the long-term bar for the dataset.

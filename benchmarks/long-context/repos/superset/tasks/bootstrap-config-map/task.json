@@ -1,0 +1,58 @@
+{
+  "$schema": "../../../../schemas/task.schema.json",
+  "schemaVersion": "1.0.0",
+  "taskId": "bootstrap-config-map",
+  "repositoryId": "superset",
+  "title": "Map Superset bootstrap and config flow",
+  "summary": "Trace how Superset bootstraps backend app creation, configuration, and frontend app mounting.",
+  "category": "analysis",
+  "difficulty": "medium",
+  "taskFamily": "real-repo-architecture-map",
+  "promptFile": "./prompt.md",
+  "curatorNotesFile": "./curator-notes.md",
+  "tags": [
+    "long-context",
+    "real-repo",
+    "python",
+    "typescript",
+    "superset",
+    "analysis"
+  ],
+  "targetComponents": [
+    "backend",
+    "config",
+    "frontend"
+  ],
+  "recommendedReadFiles": [
+    "../../../../snapshots/superset/README.md",
+    "../../../../snapshots/superset/superset/app.py",
+    "../../../../snapshots/superset/superset/config.py",
+    "../../../../snapshots/superset/superset-frontend/src/views/App.tsx"
+  ],
+  "expectedTouchedFiles": [
+    "../../../../snapshots/superset/superset/app.py",
+    "../../../../snapshots/superset/superset/config.py",
+    "../../../../snapshots/superset/superset-frontend/src/views/App.tsx"
+  ],
+  "protectedFiles": [],
+  "expectedLongContextReasoning": "The answer is only correct if the agent traces the architectural flow across the repo entrypoint, configuration surface, and runtime assembly paths instead of summarizing one file in isolation.",
+  "acceptanceCriteria": [
+    "Names the repository entrypoint file and its role.",
+    "Names the main configuration surface and its role.",
+    "Names the runtime assembly file and its role.",
+    "Ends with the benchmark invariant: \"Superset app bootstrap should connect backend app creation, config loading, and frontend app mounting.\""
+  ],
+  "execution": {
+    "timeoutMinutes": 5,
+    "fakeResponsesFile": "./smoke.responses.jsonl"
+  },
+  "validation": {
+    "resultMustContain": [
+      "superset/app.py",
+      "superset/config.py",
+      "superset-frontend/src/views/App.tsx",
+      "Superset app bootstrap should connect backend app creation, config loading, and frontend app mounting."
+    ],
+    "validatorFile": "../../../../task-validators/architecture-map.js"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "../../../../schemas/task.schema.json",
+  "schemaVersion": "1.0.0",
+  "taskId": "rails-boot-map",
+  "repositoryId": "rails",
+  "title": "Map Rails application boot",
+  "summary": "Trace how Rails application boot flows from the top-level framework entrypoint into engine and application initialization.",
+  "category": "analysis",
+  "difficulty": "medium",
+  "taskFamily": "real-repo-architecture-map",
+  "promptFile": "./prompt.md",
+  "curatorNotesFile": "./curator-notes.md",
+  "tags": [
+    "long-context",
+    "real-repo",
+    "ruby",
+    "rails",
+    "analysis"
+  ],
+  "targetComponents": [
+    "framework-entrypoint",
+    "engine",
+    "application"
+  ],
+  "recommendedReadFiles": [
+    "../../../../snapshots/rails/README.md",
+    "../../../../snapshots/rails/railties/lib/rails.rb",
+    "../../../../snapshots/rails/railties/lib/rails/engine.rb",
+    "../../../../snapshots/rails/railties/lib/rails/application.rb"
+  ],
+  "expectedTouchedFiles": [
+    "../../../../snapshots/rails/railties/lib/rails.rb",
+    "../../../../snapshots/rails/railties/lib/rails/engine.rb",
+    "../../../../snapshots/rails/railties/lib/rails/application.rb"
+  ],
+  "protectedFiles": [],
+  "expectedLongContextReasoning": "The answer is only correct if the agent traces the architectural flow across the repo entrypoint, configuration surface, and runtime assembly paths instead of summarizing one file in isolation.",
+  "acceptanceCriteria": [
+    "Names the repository entrypoint file and its role.",
+    "Names the main configuration surface and its role.",
+    "Names the runtime assembly file and its role.",
+    "Ends with the benchmark invariant: \"Rails application boot should connect the top-level rails entrypoint, engine mechanics, and application initialization.\""
+  ],
+  "execution": {
+    "timeoutMinutes": 5,
+    "fakeResponsesFile": "./smoke.responses.jsonl"
+  },
+  "validation": {
+    "resultMustContain": [
+      "railties/lib/rails.rb",
+      "railties/lib/rails/engine.rb",
+      "railties/lib/rails/application.rb",
+      "Rails application boot should connect the top-level rails entrypoint, engine mechanics, and application initialization."
+    ],
+    "validatorFile": "../../../../task-validators/architecture-map.js"
+  }
+}

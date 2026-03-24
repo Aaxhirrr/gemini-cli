@@ -1,0 +1,57 @@
+{
+  "$schema": "../../../../schemas/task.schema.json",
+  "schemaVersion": "1.0.0",
+  "taskId": "scheduler-config-map",
+  "repositoryId": "airflow",
+  "title": "Map Airflow scheduler config flow",
+  "summary": "Trace how Airflow scheduler behavior is configured from CLI configuration into config templates and the scheduler job runner.",
+  "category": "analysis",
+  "difficulty": "medium",
+  "taskFamily": "real-repo-architecture-map",
+  "promptFile": "./prompt.md",
+  "curatorNotesFile": "./curator-notes.md",
+  "tags": [
+    "long-context",
+    "real-repo",
+    "python",
+    "airflow",
+    "analysis"
+  ],
+  "targetComponents": [
+    "cli",
+    "configuration",
+    "scheduler"
+  ],
+  "recommendedReadFiles": [
+    "../../../../snapshots/airflow/README.md",
+    "../../../../snapshots/airflow/airflow-core/src/airflow/cli/cli_config.py",
+    "../../../../snapshots/airflow/airflow-core/src/airflow/config_templates/config.yml",
+    "../../../../snapshots/airflow/airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+  ],
+  "expectedTouchedFiles": [
+    "../../../../snapshots/airflow/airflow-core/src/airflow/cli/cli_config.py",
+    "../../../../snapshots/airflow/airflow-core/src/airflow/config_templates/config.yml",
+    "../../../../snapshots/airflow/airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+  ],
+  "protectedFiles": [],
+  "expectedLongContextReasoning": "The answer is only correct if the agent traces the architectural flow across the repo entrypoint, configuration surface, and runtime assembly paths instead of summarizing one file in isolation.",
+  "acceptanceCriteria": [
+    "Names the repository entrypoint file and its role.",
+    "Names the main configuration surface and its role.",
+    "Names the runtime assembly file and its role.",
+    "Ends with the benchmark invariant: \"Scheduler behavior should be explained by one path from CLI config through the config template into the scheduler job runner.\""
+  ],
+  "execution": {
+    "timeoutMinutes": 5,
+    "fakeResponsesFile": "./smoke.responses.jsonl"
+  },
+  "validation": {
+    "resultMustContain": [
+      "airflow-core/src/airflow/cli/cli_config.py",
+      "airflow-core/src/airflow/config_templates/config.yml",
+      "airflow-core/src/airflow/jobs/scheduler_job_runner.py",
+      "Scheduler behavior should be explained by one path from CLI config through the config template into the scheduler job runner."
+    ],
+    "validatorFile": "../../../../task-validators/architecture-map.js"
+  }
+}

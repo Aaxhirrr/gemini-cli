@@ -1,0 +1,57 @@
+{
+  "$schema": "../../../../schemas/task.schema.json",
+  "schemaVersion": "1.0.0",
+  "taskId": "next-dev-config-map",
+  "repositoryId": "nextjs",
+  "title": "Map next dev config flow",
+  "summary": "Trace how the Next.js dev command flows from CLI parsing into dev handling and shared server config loading.",
+  "category": "analysis",
+  "difficulty": "medium",
+  "taskFamily": "real-repo-architecture-map",
+  "promptFile": "./prompt.md",
+  "curatorNotesFile": "./curator-notes.md",
+  "tags": [
+    "long-context",
+    "real-repo",
+    "typescript",
+    "nextjs",
+    "analysis"
+  ],
+  "targetComponents": [
+    "cli",
+    "dev-server",
+    "config"
+  ],
+  "recommendedReadFiles": [
+    "../../../../snapshots/nextjs/README.md",
+    "../../../../snapshots/nextjs/packages/next/src/bin/next.ts",
+    "../../../../snapshots/nextjs/packages/next/src/cli/next-dev.ts",
+    "../../../../snapshots/nextjs/packages/next/src/server/config.ts"
+  ],
+  "expectedTouchedFiles": [
+    "../../../../snapshots/nextjs/packages/next/src/bin/next.ts",
+    "../../../../snapshots/nextjs/packages/next/src/cli/next-dev.ts",
+    "../../../../snapshots/nextjs/packages/next/src/server/config.ts"
+  ],
+  "protectedFiles": [],
+  "expectedLongContextReasoning": "The answer is only correct if the agent traces the architectural flow across the repo entrypoint, configuration surface, and runtime assembly paths instead of summarizing one file in isolation.",
+  "acceptanceCriteria": [
+    "Names the repository entrypoint file and its role.",
+    "Names the main configuration surface and its role.",
+    "Names the runtime assembly file and its role.",
+    "Ends with the benchmark invariant: \"The next dev command should flow from CLI parsing into dev command handling and then shared server config loading.\""
+  ],
+  "execution": {
+    "timeoutMinutes": 5,
+    "fakeResponsesFile": "./smoke.responses.jsonl"
+  },
+  "validation": {
+    "resultMustContain": [
+      "packages/next/src/bin/next.ts",
+      "packages/next/src/cli/next-dev.ts",
+      "packages/next/src/server/config.ts",
+      "The next dev command should flow from CLI parsing into dev command handling and then shared server config loading."
+    ],
+    "validatorFile": "../../../../task-validators/architecture-map.js"
+  }
+}

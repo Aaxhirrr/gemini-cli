@@ -1,0 +1,57 @@
+{
+  "$schema": "../../../../schemas/task.schema.json",
+  "schemaVersion": "1.0.0",
+  "taskId": "rustc-startup-map",
+  "repositoryId": "rust",
+  "title": "Map rustc startup and session configuration",
+  "summary": "Trace how rustc startup connects the driver entrypoint, compiler interface, and session configuration.",
+  "category": "analysis",
+  "difficulty": "medium",
+  "taskFamily": "real-repo-architecture-map",
+  "promptFile": "./prompt.md",
+  "curatorNotesFile": "./curator-notes.md",
+  "tags": [
+    "long-context",
+    "real-repo",
+    "rust",
+    "compiler",
+    "analysis"
+  ],
+  "targetComponents": [
+    "driver",
+    "interface",
+    "session-config"
+  ],
+  "recommendedReadFiles": [
+    "../../../../snapshots/rust/README.md",
+    "../../../../snapshots/rust/compiler/rustc_driver/src/lib.rs",
+    "../../../../snapshots/rust/compiler/rustc_interface/src/interface.rs",
+    "../../../../snapshots/rust/compiler/rustc_session/src/config.rs"
+  ],
+  "expectedTouchedFiles": [
+    "../../../../snapshots/rust/compiler/rustc_driver/src/lib.rs",
+    "../../../../snapshots/rust/compiler/rustc_interface/src/interface.rs",
+    "../../../../snapshots/rust/compiler/rustc_session/src/config.rs"
+  ],
+  "protectedFiles": [],
+  "expectedLongContextReasoning": "The answer is only correct if the agent traces the architectural flow across the repo entrypoint, configuration surface, and runtime assembly paths instead of summarizing one file in isolation.",
+  "acceptanceCriteria": [
+    "Names the repository entrypoint file and its role.",
+    "Names the main configuration surface and its role.",
+    "Names the runtime assembly file and its role.",
+    "Ends with the benchmark invariant: \"rustc startup should connect the driver entrypoint, compiler interface, and session configuration.\""
+  ],
+  "execution": {
+    "timeoutMinutes": 5,
+    "fakeResponsesFile": "./smoke.responses.jsonl"
+  },
+  "validation": {
+    "resultMustContain": [
+      "compiler/rustc_driver/src/lib.rs",
+      "compiler/rustc_interface/src/interface.rs",
+      "compiler/rustc_session/src/config.rs",
+      "rustc startup should connect the driver entrypoint, compiler interface, and session configuration."
+    ],
+    "validatorFile": "../../../../task-validators/architecture-map.js"
+  }
+}

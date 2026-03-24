@@ -25,6 +25,9 @@ async function main() {
   const targetRepositoryId =
     (options['repo'] as string | undefined) ||
     process.env['LONG_CONTEXT_BENCHMARK_TARGET_REPO'];
+  const shardId =
+    (options['shard'] as string | undefined) ||
+    process.env['LONG_CONTEXT_BENCHMARK_SHARD'];
   const checkAllRepositories =
     process.env['LONG_CONTEXT_BENCHMARK_CHECK_ALL'] === '1';
   const runMode = process.env['LONG_CONTEXT_BENCHMARK_MODE'];
@@ -32,7 +35,7 @@ async function main() {
   const taskScopedRepositories =
     !targetRepositoryId && !checkAllRepositories && runMode
       ? new Set(
-          selectTasks(dataset, { mode: runMode }).map(
+          selectTasks(dataset, { mode: runMode, shardId }).map(
             (task) => task.repository.spec.repositoryId,
           ),
         )

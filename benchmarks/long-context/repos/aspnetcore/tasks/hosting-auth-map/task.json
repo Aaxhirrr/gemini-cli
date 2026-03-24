@@ -1,0 +1,57 @@
+{
+  "$schema": "../../../../schemas/task.schema.json",
+  "schemaVersion": "1.0.0",
+  "taskId": "hosting-auth-map",
+  "repositoryId": "aspnetcore",
+  "title": "Map ASP.NET Core hosting and auth flow",
+  "summary": "Trace how ASP.NET Core hosting is assembled from WebHostBuilder into the internal host and authentication service.",
+  "category": "analysis",
+  "difficulty": "medium",
+  "taskFamily": "real-repo-architecture-map",
+  "promptFile": "./prompt.md",
+  "curatorNotesFile": "./curator-notes.md",
+  "tags": [
+    "long-context",
+    "real-repo",
+    "csharp",
+    "aspnetcore",
+    "analysis"
+  ],
+  "targetComponents": [
+    "hosting",
+    "runtime",
+    "authentication"
+  ],
+  "recommendedReadFiles": [
+    "../../../../snapshots/aspnetcore/README.md",
+    "../../../../snapshots/aspnetcore/src/Hosting/Hosting/src/WebHostBuilder.cs",
+    "../../../../snapshots/aspnetcore/src/Hosting/Hosting/src/Internal/WebHost.cs",
+    "../../../../snapshots/aspnetcore/src/Http/Authentication.Core/src/AuthenticationService.cs"
+  ],
+  "expectedTouchedFiles": [
+    "../../../../snapshots/aspnetcore/src/Hosting/Hosting/src/WebHostBuilder.cs",
+    "../../../../snapshots/aspnetcore/src/Hosting/Hosting/src/Internal/WebHost.cs",
+    "../../../../snapshots/aspnetcore/src/Http/Authentication.Core/src/AuthenticationService.cs"
+  ],
+  "protectedFiles": [],
+  "expectedLongContextReasoning": "The answer is only correct if the agent traces the architectural flow across the repo entrypoint, configuration surface, and runtime assembly paths instead of summarizing one file in isolation.",
+  "acceptanceCriteria": [
+    "Names the repository entrypoint file and its role.",
+    "Names the main configuration surface and its role.",
+    "Names the runtime assembly file and its role.",
+    "Ends with the benchmark invariant: \"ASP.NET Core hosting and authentication should be traced from WebHostBuilder into the internal host and authentication service.\""
+  ],
+  "execution": {
+    "timeoutMinutes": 5,
+    "fakeResponsesFile": "./smoke.responses.jsonl"
+  },
+  "validation": {
+    "resultMustContain": [
+      "src/Hosting/Hosting/src/WebHostBuilder.cs",
+      "src/Hosting/Hosting/src/Internal/WebHost.cs",
+      "src/Http/Authentication.Core/src/AuthenticationService.cs",
+      "ASP.NET Core hosting and authentication should be traced from WebHostBuilder into the internal host and authentication service."
+    ],
+    "validatorFile": "../../../../task-validators/architecture-map.js"
+  }
+}

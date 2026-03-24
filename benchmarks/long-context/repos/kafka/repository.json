@@ -10,10 +10,17 @@
     "createdAt": "2026-03-24",
     "url": "https://github.com/apache/kafka.git",
     "pinnedCommit": "05185c1ef8a897cc2956601d441dfbab56011352",
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "extractionJustification": "PoC extraction limited to pinned startup and configuration anchor files so the benchmark remains runnable in-repo while full-repository task curation is still in progress."
   },
-  "languages": ["java", "scala"],
-  "frameworks": ["apache-kafka", "gradle"],
+  "languages": [
+    "java",
+    "scala"
+  ],
+  "frameworks": [
+    "apache-kafka",
+    "gradle"
+  ],
   "stats": {
     "approxFileCount": 12000,
     "approxTokenCount": 9000000,
@@ -26,5 +33,16 @@
   "environment": {
     "profileId": "java-scala-streaming"
   },
-  "tasks": []
+  "tasks": [
+    {
+      "taskId": "broker-startup-map",
+      "taskDirectory": "./tasks/broker-startup-map",
+      "tags": [
+        "real",
+        "runnable",
+        "analysis"
+      ]
+    }
+  ],
+  "fixtureRoot": "../../snapshots/kafka"
 }

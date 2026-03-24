@@ -1,0 +1,57 @@
+{
+  "$schema": "../../../../schemas/task.schema.json",
+  "schemaVersion": "1.0.0",
+  "taskId": "node-bootstrap-map",
+  "repositoryId": "elasticsearch",
+  "title": "Map Elasticsearch node bootstrap",
+  "summary": "Trace how Elasticsearch server startup flows from the CLI into bootstrap and then Node initialization.",
+  "category": "analysis",
+  "difficulty": "medium",
+  "taskFamily": "real-repo-architecture-map",
+  "promptFile": "./prompt.md",
+  "curatorNotesFile": "./curator-notes.md",
+  "tags": [
+    "long-context",
+    "real-repo",
+    "java",
+    "elasticsearch",
+    "analysis"
+  ],
+  "targetComponents": [
+    "cli",
+    "bootstrap",
+    "node"
+  ],
+  "recommendedReadFiles": [
+    "../../../../snapshots/elasticsearch/README.asciidoc",
+    "../../../../snapshots/elasticsearch/distribution/tools/server-cli/src/main/java/org/elasticsearch/server/cli/ServerCli.java",
+    "../../../../snapshots/elasticsearch/server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java",
+    "../../../../snapshots/elasticsearch/server/src/main/java/org/elasticsearch/node/Node.java"
+  ],
+  "expectedTouchedFiles": [
+    "../../../../snapshots/elasticsearch/distribution/tools/server-cli/src/main/java/org/elasticsearch/server/cli/ServerCli.java",
+    "../../../../snapshots/elasticsearch/server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java",
+    "../../../../snapshots/elasticsearch/server/src/main/java/org/elasticsearch/node/Node.java"
+  ],
+  "protectedFiles": [],
+  "expectedLongContextReasoning": "The answer is only correct if the agent traces the architectural flow across the repo entrypoint, configuration surface, and runtime assembly paths instead of summarizing one file in isolation.",
+  "acceptanceCriteria": [
+    "Names the repository entrypoint file and its role.",
+    "Names the main configuration surface and its role.",
+    "Names the runtime assembly file and its role.",
+    "Ends with the benchmark invariant: \"Elasticsearch server startup should flow from the CLI into bootstrap and then Node initialization.\""
+  ],
+  "execution": {
+    "timeoutMinutes": 5,
+    "fakeResponsesFile": "./smoke.responses.jsonl"
+  },
+  "validation": {
+    "resultMustContain": [
+      "distribution/tools/server-cli/src/main/java/org/elasticsearch/server/cli/ServerCli.java",
+      "server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java",
+      "server/src/main/java/org/elasticsearch/node/Node.java",
+      "Elasticsearch server startup should flow from the CLI into bootstrap and then Node initialization."
+    ],
+    "validatorFile": "../../../../task-validators/architecture-map.js"
+  }
+}

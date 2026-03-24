@@ -10,10 +10,17 @@
     "createdAt": "2026-03-24",
     "url": "https://github.com/elastic/elasticsearch.git",
     "pinnedCommit": "135e015ff6b74f3f9eb44fd226c9ada91e3ed824",
-    "license": "AGPL-3.0, SSPL-1.0, Elastic-2.0"
+    "license": "AGPL-3.0, SSPL-1.0, Elastic-2.0",
+    "extractionJustification": "PoC extraction limited to pinned startup and configuration anchor files so the benchmark remains runnable in-repo while full-repository task curation is still in progress."
   },
-  "languages": ["java"],
-  "frameworks": ["elasticsearch", "lucene", "gradle"],
+  "languages": [
+    "java"
+  ],
+  "frameworks": [
+    "elasticsearch",
+    "lucene",
+    "gradle"
+  ],
   "stats": {
     "approxFileCount": 35000,
     "approxTokenCount": 22000000,
@@ -26,5 +33,16 @@
   "environment": {
     "profileId": "java-distributed-systems"
   },
-  "tasks": []
+  "tasks": [
+    {
+      "taskId": "node-bootstrap-map",
+      "taskDirectory": "./tasks/node-bootstrap-map",
+      "tags": [
+        "real",
+        "runnable",
+        "analysis"
+      ]
+    }
+  ],
+  "fixtureRoot": "../../snapshots/elasticsearch"
 }

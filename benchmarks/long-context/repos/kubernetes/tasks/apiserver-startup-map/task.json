@@ -1,0 +1,57 @@
+{
+  "$schema": "../../../../schemas/task.schema.json",
+  "schemaVersion": "1.0.0",
+  "taskId": "apiserver-startup-map",
+  "repositoryId": "kubernetes",
+  "title": "Map kube-apiserver startup assembly",
+  "summary": "Trace how kube-apiserver startup flows from the CLI entrypoint into option assembly and server construction.",
+  "category": "analysis",
+  "difficulty": "medium",
+  "taskFamily": "real-repo-architecture-map",
+  "promptFile": "./prompt.md",
+  "curatorNotesFile": "./curator-notes.md",
+  "tags": [
+    "long-context",
+    "real-repo",
+    "go",
+    "kubernetes",
+    "analysis"
+  ],
+  "targetComponents": [
+    "cli",
+    "options",
+    "server"
+  ],
+  "recommendedReadFiles": [
+    "../../../../snapshots/kubernetes/README.md",
+    "../../../../snapshots/kubernetes/cmd/kube-apiserver/apiserver.go",
+    "../../../../snapshots/kubernetes/cmd/kube-apiserver/app/options/options.go",
+    "../../../../snapshots/kubernetes/cmd/kube-apiserver/app/server.go"
+  ],
+  "expectedTouchedFiles": [
+    "../../../../snapshots/kubernetes/cmd/kube-apiserver/apiserver.go",
+    "../../../../snapshots/kubernetes/cmd/kube-apiserver/app/options/options.go",
+    "../../../../snapshots/kubernetes/cmd/kube-apiserver/app/server.go"
+  ],
+  "protectedFiles": [],
+  "expectedLongContextReasoning": "The answer is only correct if the agent traces the architectural flow across the repo entrypoint, configuration surface, and runtime assembly paths instead of summarizing one file in isolation.",
+  "acceptanceCriteria": [
+    "Names the repository entrypoint file and its role.",
+    "Names the main configuration surface and its role.",
+    "Names the runtime assembly file and its role.",
+    "Ends with the benchmark invariant: \"CLI startup flags, completed options, and server construction must describe one kube-apiserver startup path.\""
+  ],
+  "execution": {
+    "timeoutMinutes": 5,
+    "fakeResponsesFile": "./smoke.responses.jsonl"
+  },
+  "validation": {
+    "resultMustContain": [
+      "cmd/kube-apiserver/apiserver.go",
+      "cmd/kube-apiserver/app/options/options.go",
+      "cmd/kube-apiserver/app/server.go",
+      "CLI startup flags, completed options, and server construction must describe one kube-apiserver startup path."
+    ],
+    "validatorFile": "../../../../task-validators/architecture-map.js"
+  }
+}

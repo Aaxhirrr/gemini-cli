@@ -10,10 +10,19 @@
     "createdAt": "2026-03-24",
     "url": "https://github.com/vercel/next.js.git",
     "pinnedCommit": "aa3ba7ed15db36f1d21c827dd695a4e24a8955c6",
-    "license": "MIT"
+    "license": "MIT",
+    "extractionJustification": "PoC extraction limited to pinned startup and configuration anchor files so the benchmark remains runnable in-repo while full-repository task curation is still in progress."
   },
-  "languages": ["typescript", "javascript", "rust"],
-  "frameworks": ["next.js", "react", "turbopack"],
+  "languages": [
+    "typescript",
+    "javascript",
+    "rust"
+  ],
+  "frameworks": [
+    "next.js",
+    "react",
+    "turbopack"
+  ],
   "stats": {
     "approxFileCount": 15000,
     "approxTokenCount": 11000000,
@@ -27,5 +36,16 @@
   "environment": {
     "profileId": "node-rust-monorepo"
   },
-  "tasks": []
+  "tasks": [
+    {
+      "taskId": "next-dev-config-map",
+      "taskDirectory": "./tasks/next-dev-config-map",
+      "tags": [
+        "real",
+        "runnable",
+        "analysis"
+      ]
+    }
+  ],
+  "fixtureRoot": "../../snapshots/nextjs"
 }

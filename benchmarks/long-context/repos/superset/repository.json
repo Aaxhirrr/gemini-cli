@@ -10,10 +10,18 @@
     "createdAt": "2026-03-24",
     "url": "https://github.com/apache/superset.git",
     "pinnedCommit": "5d9f53ff0cbf815a7e3c87d9ffc1bb15b35d557f",
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "extractionJustification": "PoC extraction limited to pinned startup and configuration anchor files so the benchmark remains runnable in-repo while full-repository task curation is still in progress."
   },
-  "languages": ["python", "typescript"],
-  "frameworks": ["apache-superset", "flask", "react"],
+  "languages": [
+    "python",
+    "typescript"
+  ],
+  "frameworks": [
+    "apache-superset",
+    "flask",
+    "react"
+  ],
   "stats": {
     "approxFileCount": 11000,
     "approxTokenCount": 8500000,
@@ -27,5 +35,16 @@
   "environment": {
     "profileId": "python-typescript-analytics"
   },
-  "tasks": []
+  "tasks": [
+    {
+      "taskId": "bootstrap-config-map",
+      "taskDirectory": "./tasks/bootstrap-config-map",
+      "tags": [
+        "real",
+        "runnable",
+        "analysis"
+      ]
+    }
+  ],
+  "fixtureRoot": "../../snapshots/superset"
 }

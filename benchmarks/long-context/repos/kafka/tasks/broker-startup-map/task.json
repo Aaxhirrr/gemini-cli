@@ -1,0 +1,58 @@
+{
+  "$schema": "../../../../schemas/task.schema.json",
+  "schemaVersion": "1.0.0",
+  "taskId": "broker-startup-map",
+  "repositoryId": "kafka",
+  "title": "Map Kafka broker startup",
+  "summary": "Trace how Kafka broker startup connects the main entrypoint, broker configuration, and broker server runtime.",
+  "category": "analysis",
+  "difficulty": "medium",
+  "taskFamily": "real-repo-architecture-map",
+  "promptFile": "./prompt.md",
+  "curatorNotesFile": "./curator-notes.md",
+  "tags": [
+    "long-context",
+    "real-repo",
+    "java",
+    "scala",
+    "kafka",
+    "analysis"
+  ],
+  "targetComponents": [
+    "cli",
+    "config",
+    "broker"
+  ],
+  "recommendedReadFiles": [
+    "../../../../snapshots/kafka/README.md",
+    "../../../../snapshots/kafka/core/src/main/scala/kafka/Kafka.scala",
+    "../../../../snapshots/kafka/core/src/main/scala/kafka/server/KafkaConfig.scala",
+    "../../../../snapshots/kafka/core/src/main/scala/kafka/server/BrokerServer.scala"
+  ],
+  "expectedTouchedFiles": [
+    "../../../../snapshots/kafka/core/src/main/scala/kafka/Kafka.scala",
+    "../../../../snapshots/kafka/core/src/main/scala/kafka/server/KafkaConfig.scala",
+    "../../../../snapshots/kafka/core/src/main/scala/kafka/server/BrokerServer.scala"
+  ],
+  "protectedFiles": [],
+  "expectedLongContextReasoning": "The answer is only correct if the agent traces the architectural flow across the repo entrypoint, configuration surface, and runtime assembly paths instead of summarizing one file in isolation.",
+  "acceptanceCriteria": [
+    "Names the repository entrypoint file and its role.",
+    "Names the main configuration surface and its role.",
+    "Names the runtime assembly file and its role.",
+    "Ends with the benchmark invariant: \"Kafka broker startup should connect the main entrypoint, broker config, and broker server runtime.\""
+  ],
+  "execution": {
+    "timeoutMinutes": 5,
+    "fakeResponsesFile": "./smoke.responses.jsonl"
+  },
+  "validation": {
+    "resultMustContain": [
+      "core/src/main/scala/kafka/Kafka.scala",
+      "core/src/main/scala/kafka/server/KafkaConfig.scala",
+      "core/src/main/scala/kafka/server/BrokerServer.scala",
+      "Kafka broker startup should connect the main entrypoint, broker config, and broker server runtime."
+    ],
+    "validatorFile": "../../../../task-validators/architecture-map.js"
+  }
+}

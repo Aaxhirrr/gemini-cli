@@ -34,10 +34,14 @@ describe('long-context benchmark scripts', () => {
     const dataset = await loadBenchmarkDataset();
     const warnings = evaluateRubricWarnings(dataset);
     const smokeTasks = selectTasks(dataset, { mode: 'smoke' });
+    const realRepoAnalysisTasks = selectTasks(dataset, {
+      shardId: 'real-repo-analysis',
+    });
 
     expect(dataset.repositories).toHaveLength(11);
-    expect(dataset.tasks).toHaveLength(1);
+    expect(dataset.tasks).toHaveLength(11);
     expect(smokeTasks).toHaveLength(1);
+    expect(realRepoAnalysisTasks).toHaveLength(10);
     expect(warnings.some((warning) => warning.includes('minimum is 30'))).toBe(
       true,
     );
@@ -74,6 +78,44 @@ describe('long-context benchmark scripts', () => {
       'packages/config/defaults.json',
     );
     expect(execution.result.validation.validatorResult?.status).toBe('passed');
+
+    const resultFiles = await findRunResultFiles(
+      path.join(artifactRoot, 'runs'),
+    );
+    expect(resultFiles).toHaveLength(1);
+  }, 30_000);
+
+  it('runs a real-repo analysis task with fake responses and records a passing result', async () => {
+    if (!(await pathExists(CLI_ENTRYPOINT))) {
+      return;
+    }
+
+    const dataset = await loadBenchmarkDataset();
+    const [task] = selectTasks(dataset, {
+      shardId: 'real-repo-analysis',
+      repositoryId: 'nextjs',
+      taskLimit: 1,
+    });
+    const artifactRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'long-context-benchmark-real-artifacts-'),
+    );
+    tempRoots.push(artifactRoot);
+
+    const execution = await runBenchmarkTask(task, {
+      benchmarkId: dataset.manifest.benchmarkId,
+      benchmarkVersion: dataset.manifest.benchmarkVersion,
+      artifactRoot,
+      runMode: 'manual',
+      model: 'deterministic-fake',
+      useFakeResponses: true,
+    });
+
+    expect(execution.result.status).toBe('passed');
+    expect(execution.result.resultText).toContain(
+      'packages/next/src/cli/next-dev.ts',
+    );
+    expect(execution.result.validation.validatorResult?.status).toBe('passed');
+    expect(execution.result.filesModified).toHaveLength(0);
 
     const resultFiles = await findRunResultFiles(
       path.join(artifactRoot, 'runs'),

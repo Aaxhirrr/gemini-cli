@@ -1,0 +1,58 @@
+{
+  "$schema": "../../../../schemas/task.schema.json",
+  "schemaVersion": "1.0.0",
+  "taskId": "grafana-startup-map",
+  "repositoryId": "grafana",
+  "title": "Map Grafana server startup",
+  "summary": "Trace how the Grafana server starts from the CLI entrypoint through settings loading into runtime bootstrap.",
+  "category": "analysis",
+  "difficulty": "medium",
+  "taskFamily": "real-repo-architecture-map",
+  "promptFile": "./prompt.md",
+  "curatorNotesFile": "./curator-notes.md",
+  "tags": [
+    "long-context",
+    "real-repo",
+    "go",
+    "typescript",
+    "grafana",
+    "analysis"
+  ],
+  "targetComponents": [
+    "cli",
+    "settings",
+    "server"
+  ],
+  "recommendedReadFiles": [
+    "../../../../snapshots/grafana/README.md",
+    "../../../../snapshots/grafana/pkg/cmd/grafana/main.go",
+    "../../../../snapshots/grafana/pkg/setting/setting.go",
+    "../../../../snapshots/grafana/pkg/server/server.go"
+  ],
+  "expectedTouchedFiles": [
+    "../../../../snapshots/grafana/pkg/cmd/grafana/main.go",
+    "../../../../snapshots/grafana/pkg/setting/setting.go",
+    "../../../../snapshots/grafana/pkg/server/server.go"
+  ],
+  "protectedFiles": [],
+  "expectedLongContextReasoning": "The answer is only correct if the agent traces the architectural flow across the repo entrypoint, configuration surface, and runtime assembly paths instead of summarizing one file in isolation.",
+  "acceptanceCriteria": [
+    "Names the repository entrypoint file and its role.",
+    "Names the main configuration surface and its role.",
+    "Names the runtime assembly file and its role.",
+    "Ends with the benchmark invariant: \"Grafana startup should flow from the CLI entrypoint through settings loading into server bootstrap.\""
+  ],
+  "execution": {
+    "timeoutMinutes": 5,
+    "fakeResponsesFile": "./smoke.responses.jsonl"
+  },
+  "validation": {
+    "resultMustContain": [
+      "pkg/cmd/grafana/main.go",
+      "pkg/setting/setting.go",
+      "pkg/server/server.go",
+      "Grafana startup should flow from the CLI entrypoint through settings loading into server bootstrap."
+    ],
+    "validatorFile": "../../../../task-validators/architecture-map.js"
+  }
+}
