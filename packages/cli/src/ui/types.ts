@@ -299,6 +299,28 @@ export interface BenchmarkDashboardLatestRun {
   byFailureCategory: Record<string, number>;
   byLanguage: Record<string, number>;
   byModel: Record<string, number>;
+  taskResults: BenchmarkTaskResult[];
+  executionLog: string[];
+}
+
+export interface BenchmarkTaskResult {
+  repositoryId: string;
+  taskId: string;
+  status: 'passed' | 'failed' | 'errored' | 'partial';
+  difficulty: string;
+  category: string;
+  model: string;
+  durationMs: number;
+  summary: string;
+  failureCategory?: string;
+  resultPreview?: string;
+  toolCalls: number;
+  filesModifiedCount: number;
+  filesModifiedSample: string[];
+  validationPassed: number;
+  validationFailed: number;
+  validationSkipped: number;
+  validationErrored: number;
 }
 
 export type HistoryItemBenchmarkDashboard = HistoryItemBase & {

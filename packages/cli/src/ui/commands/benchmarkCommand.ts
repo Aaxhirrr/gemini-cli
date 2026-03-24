@@ -18,6 +18,7 @@ import {
   type HistoryItemBenchmarkDashboard,
   type BenchmarkDashboardLatestRun,
   type BenchmarkRepositoryCard,
+  type BenchmarkTaskResult,
 } from '../types.js';
 
 interface BenchmarkManifest {
@@ -68,6 +69,48 @@ interface AggregateSummary {
 
 interface LastRunSummary {
   runMode?: string;
+  taskCount?: number;
+  resultCount?: number;
+  passed?: number;
+  failed?: number;
+  errored?: number;
+  partial?: number;
+  resultFiles?: string[];
+}
+
+interface RepoCheckSummary {
+  repositories: Array<{
+    repositoryId: string;
+    cleanGitStatus?: boolean;
+  }>;
+}
+
+interface ValidationCheckResult {
+  status: 'passed' | 'failed' | 'skipped' | 'errored';
+}
+
+interface RunResult {
+  repositoryId: string;
+  taskId: string;
+  taskDifficulty: string;
+  taskCategory: string;
+  model: string;
+  status: 'passed' | 'failed' | 'errored' | 'partial';
+  durationMs: number;
+  summary: string;
+  failureCategory?: string;
+  resultText?: string;
+  filesModified?: string[];
+  metrics?: {
+    toolCalls?: number;
+  };
+  validation: {
+    commandResults: ValidationCheckResult[];
+    fileAssertionResults: ValidationCheckResult[];
+    gitDiffResults: ValidationCheckResult[];
+    resultContentResults: ValidationCheckResult[];
+    validatorResult?: ValidationCheckResult;
+  };
 }
 
 const BENCHMARK_MANIFEST_PATH = path.join(
@@ -145,6 +188,8 @@ async function loadRepositoryCards(
 function buildLatestRunSummary(
   aggregate: AggregateSummary | null,
   lastRun: LastRunSummary | null,
+  taskResults: BenchmarkTaskResult[],
+  executionLog: string[],
   labelOverride?: string,
 ): BenchmarkDashboardLatestRun | undefined {
   if (!aggregate) {
@@ -164,11 +209,145 @@ function buildLatestRunSummary(
     byFailureCategory: aggregate.byFailureCategory,
     byLanguage: aggregate.byLanguage,
     byModel: aggregate.byModel,
+    taskResults,
+    executionLog,
   };
+}
+
+function previewText(text: string | undefined, maxLength = 180) {
+  if (!text) {
+    return undefined;
+  }
+
+  const collapsed = text.replace(/\s+/g, ' ').trim();
+  if (collapsed.length <= maxLength) {
+    return collapsed;
+  }
+
+  return `${collapsed.slice(0, maxLength - 3)}...`;
+}
+
+function countValidationChecks(runResult: RunResult) {
+  const checks = [
+    ...runResult.validation.commandResults,
+    ...runResult.validation.fileAssertionResults,
+    ...runResult.validation.gitDiffResults,
+    ...runResult.validation.resultContentResults,
+    ...(runResult.validation.validatorResult
+      ? [runResult.validation.validatorResult]
+      : []),
+  ];
+
+  return checks.reduce(
+    (counts, check) => {
+      counts[check.status] += 1;
+      return counts;
+    },
+    {
+      passed: 0,
+      failed: 0,
+      skipped: 0,
+      errored: 0,
+    },
+  );
+}
+
+function buildTaskResult(runResult: RunResult): BenchmarkTaskResult {
+  const validationCounts = countValidationChecks(runResult);
+  return {
+    repositoryId: runResult.repositoryId,
+    taskId: runResult.taskId,
+    status: runResult.status,
+    difficulty: runResult.taskDifficulty,
+    category: runResult.taskCategory,
+    model: runResult.model,
+    durationMs: runResult.durationMs,
+    summary: runResult.summary,
+    failureCategory: runResult.failureCategory,
+    resultPreview: previewText(runResult.resultText),
+    toolCalls: runResult.metrics?.toolCalls || 0,
+    filesModifiedCount: runResult.filesModified?.length || 0,
+    filesModifiedSample: (runResult.filesModified || []).slice(0, 4),
+    validationPassed: validationCounts.passed,
+    validationFailed: validationCounts.failed,
+    validationSkipped: validationCounts.skipped,
+    validationErrored: validationCounts.errored,
+  };
+}
+
+async function loadTaskResults(lastRunSummary: LastRunSummary | null) {
+  const resultFiles = lastRunSummary?.resultFiles || [];
+  const results = await Promise.all(
+    resultFiles.map(async (resultFile) => {
+      if (!(await pathExists(resultFile))) {
+        return null;
+      }
+      const runResult = await readJsonFile<RunResult>(resultFile);
+      return buildTaskResult(runResult);
+    }),
+  );
+
+  return results
+    .filter((result): result is BenchmarkTaskResult => result !== null)
+    .sort(
+      (left, right) =>
+        left.repositoryId.localeCompare(right.repositoryId) ||
+        left.taskId.localeCompare(right.taskId),
+    );
+}
+
+function normalizeExecutionLog(stdout: string, stderr: string) {
+  return `${stdout}\n${stderr}`
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim().length > 0)
+    .slice(-24);
+}
+
+function buildSyntheticExecutionLog(
+  datasetValidation: DatasetValidationSummary | null,
+  repoCheck: RepoCheckSummary | null,
+  lastRunSummary: LastRunSummary | null,
+  aggregateSummary: AggregateSummary | null,
+) {
+  const lines: string[] = [];
+
+  if (datasetValidation) {
+    lines.push(
+      `Validated long-context dataset. Repositories: ${datasetValidation.repositoryCount}; Tasks: ${datasetValidation.taskCount}; Warnings: ${
+        datasetValidation.warnings?.length || 0
+      }.`,
+    );
+  }
+
+  if (repoCheck) {
+    lines.push(
+      `Checked ${repoCheck.repositories.length} benchmark repositories.`,
+    );
+  }
+
+  if (lastRunSummary) {
+    lines.push(
+      `Ran ${lastRunSummary.resultCount || 0} long-context benchmark executions. Passed: ${
+        lastRunSummary.passed || 0
+      }; Failed: ${lastRunSummary.failed || 0}; Errored: ${
+        lastRunSummary.errored || 0
+      }; Partial: ${lastRunSummary.partial || 0}.`,
+    );
+  }
+
+  if (aggregateSummary) {
+    lines.push(
+      `Aggregated ${aggregateSummary.totalRuns} benchmark runs for the latest execution.`,
+    );
+  }
+
+  return lines;
 }
 
 async function loadBenchmarkDashboard(
   repoRoot: string,
+  executionLogOverride?: string[],
   labelOverride?: string,
 ): Promise<HistoryItemBenchmarkDashboard> {
   const manifestPath = path.join(repoRoot, BENCHMARK_MANIFEST_PATH);
@@ -179,6 +358,7 @@ async function loadBenchmarkDashboard(
   const datasetValidationPath = path.join(artifactDir, 'dataset-validation.json');
   const aggregateSummaryPath = path.join(artifactDir, 'aggregate-summary.json');
   const lastRunSummaryPath = path.join(artifactDir, 'last-run-summary.json');
+  const repoCheckPath = path.join(artifactDir, 'repo-check.json');
 
   const datasetValidation = (await pathExists(datasetValidationPath))
     ? await readJsonFile<DatasetValidationSummary>(datasetValidationPath)
@@ -189,6 +369,19 @@ async function loadBenchmarkDashboard(
   const lastRunSummary = (await pathExists(lastRunSummaryPath))
     ? await readJsonFile<LastRunSummary>(lastRunSummaryPath)
     : null;
+  const repoCheck = (await pathExists(repoCheckPath))
+    ? await readJsonFile<RepoCheckSummary>(repoCheckPath)
+    : null;
+  const taskResults = await loadTaskResults(lastRunSummary);
+  const executionLog =
+    executionLogOverride && executionLogOverride.length > 0
+      ? executionLogOverride
+      : buildSyntheticExecutionLog(
+          datasetValidation,
+          repoCheck,
+          lastRunSummary,
+          aggregateSummary,
+        );
 
   const taskCount = repositories.reduce(
     (total, repository) => total + repository.taskCount,
@@ -215,6 +408,8 @@ async function loadBenchmarkDashboard(
     latestRun: buildLatestRunSummary(
       aggregateSummary,
       lastRunSummary,
+      taskResults,
+      executionLog,
       labelOverride,
     ),
   };
@@ -232,6 +427,7 @@ async function resolveBenchmarkRepoRoot(context: CommandContext) {
 
 async function showBenchmarkDashboard(
   context: CommandContext,
+  executionLogOverride?: string[],
   labelOverride?: string,
 ) {
   const repoRoot = await resolveBenchmarkRepoRoot(context);
@@ -243,7 +439,11 @@ async function showBenchmarkDashboard(
     return;
   }
 
-  const dashboard = await loadBenchmarkDashboard(repoRoot, labelOverride);
+  const dashboard = await loadBenchmarkDashboard(
+    repoRoot,
+    executionLogOverride,
+    labelOverride,
+  );
   context.ui.addItem(dashboard);
 }
 
@@ -336,7 +536,11 @@ async function runBenchmarkLane(
       return;
     }
 
-    const dashboard = await loadBenchmarkDashboard(repoRoot, label);
+    const dashboard = await loadBenchmarkDashboard(
+      repoRoot,
+      normalizeExecutionLog(result.stdout, result.stderr),
+      label,
+    );
     context.ui.addItem(dashboard);
   } finally {
     context.ui.setPendingItem(null);
@@ -348,7 +552,7 @@ async function defaultAction(context: CommandContext) {
 }
 
 async function reportAction(context: CommandContext) {
-  await showBenchmarkDashboard(context, 'Latest benchmark report');
+  await showBenchmarkDashboard(context, undefined, 'Latest benchmark report');
 }
 
 async function runSmokeAction(context: CommandContext) {

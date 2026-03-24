@@ -10,6 +10,7 @@ import { theme } from '../../semantic-colors.js';
 import type {
   BenchmarkDashboardLatestRun,
   BenchmarkRepositoryCard,
+  BenchmarkTaskResult,
 } from '../../types.js';
 
 interface BenchmarkDashboardProps {
@@ -61,6 +62,29 @@ const renderStatusColor = (run: BenchmarkDashboardLatestRun) => {
     return theme.status.warning;
   }
   return theme.status.success;
+};
+
+const renderTaskStatusColor = (
+  status: BenchmarkTaskResult['status'],
+) => {
+  switch (status) {
+    case 'passed':
+      return theme.status.success;
+    case 'failed':
+    case 'errored':
+      return theme.status.error;
+    case 'partial':
+      return theme.status.warning;
+    default:
+      return theme.text.primary;
+  }
+};
+
+const formatDurationMs = (durationMs: number) => {
+  if (durationMs >= 10_000) {
+    return `${Math.round(durationMs / 1000)}s`;
+  }
+  return `${(durationMs / 1000).toFixed(1)}s`;
 };
 
 export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
@@ -187,6 +211,66 @@ export const BenchmarkDashboard: React.FC<BenchmarkDashboardProps> = ({
               .map(([category, count]) => `${category} (${count})`)
               .join(', ')}
           />
+        </Section>
+      )}
+
+      {latestRun && latestRun.taskResults.length > 0 && (
+        <Section title="Task Results">
+          {latestRun.taskResults.map((taskResult) => (
+            <Box
+              key={`${taskResult.repositoryId}/${taskResult.taskId}`}
+              flexDirection="column"
+              marginBottom={1}
+            >
+              <Text>
+                -{' '}
+                <Text color={theme.text.accent}>
+                  {taskResult.repositoryId}/{taskResult.taskId}
+                </Text>{' '}
+                <Text color={renderTaskStatusColor(taskResult.status)}>
+                  [{taskResult.status}]
+                </Text>{' '}
+                <Text color={theme.text.secondary}>
+                  {formatDurationMs(taskResult.durationMs)} | {taskResult.model}
+                </Text>
+              </Text>
+              <Text color={theme.text.secondary}>
+                {taskResult.summary}
+              </Text>
+              <Text color={theme.text.secondary}>
+                validation: {taskResult.validationPassed} passed,{' '}
+                {taskResult.validationFailed} failed,{' '}
+                {taskResult.validationErrored} errored
+                {taskResult.filesModifiedCount > 0
+                  ? ` | files changed: ${taskResult.filesModifiedCount}`
+                  : ` | tool calls: ${taskResult.toolCalls}`}
+              </Text>
+              {taskResult.resultPreview && (
+                <Text color={theme.text.primary}>
+                  result: {taskResult.resultPreview}
+                </Text>
+              )}
+              {taskResult.filesModifiedSample.length > 0 && (
+                <Text color={theme.text.secondary}>
+                  files: {taskResult.filesModifiedSample.join(', ')}
+                  {taskResult.filesModifiedCount >
+                  taskResult.filesModifiedSample.length
+                    ? ', ...'
+                    : ''}
+                </Text>
+              )}
+            </Box>
+          ))}
+        </Section>
+      )}
+
+      {latestRun && latestRun.executionLog.length > 0 && (
+        <Section title="Benchmark Eval Transcript">
+          {latestRun.executionLog.map((line, index) => (
+            <Text key={`${index}-${line}`} color={theme.text.secondary}>
+              {line}
+            </Text>
+          ))}
         </Section>
       )}
 

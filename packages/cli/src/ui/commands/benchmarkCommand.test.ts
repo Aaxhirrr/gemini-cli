@@ -27,6 +27,11 @@ async function writeJson(filePath: string, value: unknown) {
 }
 
 async function createBenchmarkFixture(rootDir: string) {
+  const resultFile = path.join(
+    rootDir,
+    'artifacts/long-context-benchmark/runs/2026-03-24T17-49-35-957Z/nextjs/next-dev-config-map/deterministic-fake/result.json',
+  );
+
   await writeJson(path.join(rootDir, 'benchmarks/long-context/manifest.json'), {
     benchmarkId: 'long-context.seed.local',
     benchmarkVersion: '0.2.0',
@@ -85,8 +90,50 @@ async function createBenchmarkFixture(rootDir: string) {
     path.join(rootDir, 'artifacts/long-context-benchmark/last-run-summary.json'),
     {
       runMode: 'manual',
+      resultCount: 1,
+      passed: 1,
+      failed: 0,
+      errored: 0,
+      partial: 0,
+      resultFiles: [resultFile],
     },
   );
+
+  await writeJson(
+    path.join(rootDir, 'artifacts/long-context-benchmark/repo-check.json'),
+    {
+      repositories: [{ repositoryId: 'nextjs', cleanGitStatus: true }],
+    },
+  );
+
+  await writeJson(resultFile, {
+    repositoryId: 'nextjs',
+    taskId: 'next-dev-config-map',
+    taskDifficulty: 'medium',
+    taskCategory: 'analysis',
+    model: 'deterministic-fake',
+    status: 'passed',
+    durationMs: 5123,
+    summary: 'Benchmark task nextjs/next-dev-config-map passed validation.',
+    resultText:
+      'Entrypoint: `packages/next/src/bin/next.ts` ... Cross-file invariant: The next dev command should flow from CLI parsing into dev command handling and then shared server config loading.',
+    filesModified: [],
+    metrics: {
+      toolCalls: 0,
+    },
+    validation: {
+      commandResults: [],
+      fileAssertionResults: [],
+      gitDiffResults: [],
+      resultContentResults: [
+        { status: 'passed' },
+        { status: 'passed' },
+      ],
+      validatorResult: {
+        status: 'passed',
+      },
+    },
+  });
 }
 
 describe('benchmarkCommand', () => {
@@ -127,6 +174,16 @@ describe('benchmarkCommand', () => {
         latestRun: expect.objectContaining({
           totalRuns: 10,
           passed: 10,
+          taskResults: [
+            expect.objectContaining({
+              repositoryId: 'nextjs',
+              taskId: 'next-dev-config-map',
+              status: 'passed',
+            }),
+          ],
+          executionLog: expect.arrayContaining([
+            expect.stringContaining('Validated long-context dataset'),
+          ]),
         }),
       }),
     );
@@ -151,7 +208,15 @@ describe('benchmarkCommand', () => {
       };
       child.stdout = new EventEmitter();
       child.stderr = new EventEmitter();
-      queueMicrotask(() => child.emit('close', 0));
+      queueMicrotask(() => {
+        child.stdout.emit(
+          'data',
+          Buffer.from(
+            'Validated long-context dataset at test-root.\nRan 10 long-context benchmark executions.\nPassed: 10\n',
+          ),
+        );
+        child.emit('close', 0);
+      });
       return child;
     });
 
@@ -168,6 +233,10 @@ describe('benchmarkCommand', () => {
         latestRun: expect.objectContaining({
           label: 'real-repo analysis',
           totalRuns: 10,
+          executionLog: expect.arrayContaining([
+            expect.stringContaining('Validated long-context dataset'),
+            expect.stringContaining('Ran 10 long-context benchmark executions'),
+          ]),
         }),
       }),
     );
