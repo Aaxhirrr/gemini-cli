@@ -276,6 +276,44 @@ export interface ToolDefinition {
   description?: string;
 }
 
+export interface BenchmarkRepositoryCard {
+  repositoryId: string;
+  title: string;
+  languages: string[];
+  frameworks: string[];
+  taskCount: number;
+  defaultBranch: string;
+  pinnedCommit: string;
+  sourceUrl: string;
+  status: 'runnable' | 'intake-only';
+}
+
+export interface BenchmarkDashboardLatestRun {
+  label: string;
+  totalRuns: number;
+  passed: number;
+  failed: number;
+  errored: number;
+  partial: number;
+  byRepository: Record<string, number>;
+  byFailureCategory: Record<string, number>;
+  byLanguage: Record<string, number>;
+  byModel: Record<string, number>;
+}
+
+export type HistoryItemBenchmarkDashboard = HistoryItemBase & {
+  type: 'benchmark_dashboard';
+  benchmarkId: string;
+  benchmarkVersion: string;
+  repositoryCount: number;
+  taskCount: number;
+  repositoriesWithTasks: number;
+  metadataOnlyRepositories: number;
+  warnings: string[];
+  repositories: BenchmarkRepositoryCard[];
+  latestRun?: BenchmarkDashboardLatestRun;
+};
+
 export type HistoryItemToolsList = HistoryItemBase & {
   type: 'tools_list';
   tools: ToolDefinition[];
@@ -377,6 +415,7 @@ export type HistoryItemWithoutId =
   | HistoryItemAgentsList
   | HistoryItemMcpStatus
   | HistoryItemChatList
+  | HistoryItemBenchmarkDashboard
   | HistoryItemThinking
   | HistoryItemHint;
 
