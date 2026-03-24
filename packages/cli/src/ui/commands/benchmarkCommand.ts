@@ -256,8 +256,18 @@ function runNpmScript(
   stderr: string;
 }> {
   return new Promise((resolve, reject) => {
-    const command = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-    const child = spawn(command, ['run', scriptName], {
+    const command =
+      process.platform === 'win32'
+        ? 'cmd.exe'
+        : process.platform === 'darwin' || process.platform === 'linux'
+          ? 'npm'
+          : 'npm';
+    const args =
+      process.platform === 'win32'
+        ? ['/d', '/s', '/c', `npm run ${scriptName}`]
+        : ['run', scriptName];
+
+    const child = spawn(command, args, {
       cwd: repoRoot,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
