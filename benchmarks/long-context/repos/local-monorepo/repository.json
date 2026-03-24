@@ -1,0 +1,33 @@
+{
+  "$schema": "../../schemas/repository.schema.json",
+  "schemaVersion": "1.0.0",
+  "repositoryId": "local-monorepo",
+  "title": "Workspace Notes Service Fixture",
+  "description": "Synthetic TypeScript monorepo fixture that models auth refresh, cached permission checks, a worker, and a polling web client.",
+  "fixtureRoot": "../../fixtures/local-monorepo",
+  "defaultBranch": "main",
+  "source": {
+    "kind": "synthetic",
+    "createdAt": "2026-03-24",
+    "seed": "long-context-initial-slice"
+  },
+  "languages": ["typescript", "json", "markdown"],
+  "stats": {
+    "approxFileCount": 15,
+    "approxTokenCount": 7600,
+    "entrypointFiles": [
+      "../../fixtures/local-monorepo/README.md",
+      "../../fixtures/local-monorepo/docs/architecture.md",
+      "../../fixtures/local-monorepo/docs/caching.md",
+      "../../fixtures/local-monorepo/packages/config/defaults.json",
+      "../../fixtures/local-monorepo/packages/api/src/server.ts"
+    ]
+  },
+  "tasks": [
+    {
+      "taskId": "auth-refresh-window",
+      "taskDirectory": "./tasks/auth-refresh-window",
+      "tags": ["cache-invalidation", "docs", "configuration"]
+    }
+  ]
+}

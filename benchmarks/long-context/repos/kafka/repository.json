@@ -1,0 +1,30 @@
+{
+  "$schema": "../../schemas/repository.schema.json",
+  "schemaVersion": "1.0.0",
+  "repositoryId": "kafka",
+  "title": "apache/kafka",
+  "description": "Distributed streaming platform with large-scale Java and Scala subsystems spanning brokers, storage, protocols, and tooling.",
+  "defaultBranch": "trunk",
+  "source": {
+    "kind": "git",
+    "createdAt": "2026-03-24",
+    "url": "https://github.com/apache/kafka.git",
+    "pinnedCommit": "05185c1ef8a897cc2956601d441dfbab56011352",
+    "license": "Apache-2.0"
+  },
+  "languages": ["java", "scala"],
+  "frameworks": ["apache-kafka", "gradle"],
+  "stats": {
+    "approxFileCount": 12000,
+    "approxTokenCount": 9000000,
+    "entrypointFiles": [
+      "./README.md",
+      "./build.gradle",
+      "./core/src/main/scala/kafka/Kafka.scala"
+    ]
+  },
+  "environment": {
+    "profileId": "java-scala-streaming"
+  },
+  "tasks": []
+}

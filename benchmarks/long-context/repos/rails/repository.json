@@ -1,0 +1,30 @@
+{
+  "$schema": "../../schemas/repository.schema.json",
+  "schemaVersion": "1.0.0",
+  "repositoryId": "rails",
+  "title": "rails/rails",
+  "description": "The Ruby on Rails framework monorepo, covering application boot, ORM, controllers, views, jobs, and deployment-facing abstractions.",
+  "defaultBranch": "main",
+  "source": {
+    "kind": "git",
+    "createdAt": "2026-03-24",
+    "url": "https://github.com/rails/rails.git",
+    "pinnedCommit": "4df808965b4a1e42cbd4a3ad0764d30a18a5e1b1",
+    "license": "MIT"
+  },
+  "languages": ["ruby", "javascript"],
+  "frameworks": ["ruby-on-rails", "rack"],
+  "stats": {
+    "approxFileCount": 7000,
+    "approxTokenCount": 5000000,
+    "entrypointFiles": [
+      "./README.md",
+      "./Gemfile",
+      "./railties/lib/rails.rb"
+    ]
+  },
+  "environment": {
+    "profileId": "ruby-web-framework"
+  },
+  "tasks": []
+}

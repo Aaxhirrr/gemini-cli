@@ -62,3 +62,5 @@ gemini-debug.log
 .gemini-clipboard/
 .eslintcache
 evals/logs/
+artifacts/long-context-benchmark*/
+artifacts/long-context-demo-workspace*/

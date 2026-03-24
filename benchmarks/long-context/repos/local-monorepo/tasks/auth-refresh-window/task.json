@@ -1,0 +1,114 @@
+{
+  "$schema": "../../../schemas/task.schema.json",
+  "schemaVersion": "1.0.0",
+  "taskId": "auth-refresh-window",
+  "repositoryId": "local-monorepo",
+  "title": "Collapse cache TTLs onto the auth refresh window",
+  "summary": "Update the local monorepo fixture so session and permission caches never outlive the auth refresh window, then document the invariant for future maintainers.",
+  "category": "code-change",
+  "difficulty": "medium",
+  "taskFamily": "cross-component-cache-invariant",
+  "promptFile": "./prompt.md",
+  "curatorNotesFile": "./curator-notes.md",
+  "tags": [
+    "long-context",
+    "typescript",
+    "cache-invalidation",
+    "configuration",
+    "docs"
+  ],
+  "targetComponents": ["api", "config", "docs"],
+  "recommendedReadFiles": [
+    "../../../../fixtures/local-monorepo/README.md",
+    "../../../../fixtures/local-monorepo/docs/architecture.md",
+    "../../../../fixtures/local-monorepo/docs/caching.md",
+    "../../../../fixtures/local-monorepo/docs/operations.md",
+    "../../../../fixtures/local-monorepo/packages/config/defaults.json",
+    "../../../../fixtures/local-monorepo/packages/api/src/lib/types.ts",
+    "../../../../fixtures/local-monorepo/packages/api/src/lib/session-cache.ts",
+    "../../../../fixtures/local-monorepo/packages/api/src/lib/permission-cache.ts",
+    "../../../../fixtures/local-monorepo/packages/api/src/routes/sessions.ts",
+    "../../../../fixtures/local-monorepo/packages/api/src/routes/notes.ts",
+    "../../../../fixtures/local-monorepo/packages/api/src/server.ts",
+    "../../../../fixtures/local-monorepo/packages/worker/src/jobs/sessionSnapshot.ts",
+    "../../../../fixtures/local-monorepo/packages/web/src/hooks/useWorkspaceNotes.ts"
+  ],
+  "expectedLongContextReasoning": "This task only resolves cleanly if the agent maps configuration, cache factories, server config loading, and design docs together instead of editing one cache file in isolation.",
+  "expectedTouchedFiles": [
+    "../../../../fixtures/local-monorepo/docs/architecture.md",
+    "../../../../fixtures/local-monorepo/docs/caching.md",
+    "../../../../fixtures/local-monorepo/packages/config/defaults.json",
+    "../../../../fixtures/local-monorepo/packages/api/src/lib/types.ts",
+    "../../../../fixtures/local-monorepo/packages/api/src/lib/session-cache.ts",
+    "../../../../fixtures/local-monorepo/packages/api/src/lib/permission-cache.ts",
+    "../../../../fixtures/local-monorepo/packages/api/src/server.ts"
+  ],
+  "protectedFiles": [
+    "../../../../fixtures/local-monorepo/packages/api/src/routes/notes.ts",
+    "../../../../fixtures/local-monorepo/packages/api/src/routes/sessions.ts",
+    "../../../../fixtures/local-monorepo/packages/web/src/hooks/useWorkspaceNotes.ts",
+    "../../../../fixtures/local-monorepo/packages/worker/src/jobs/sessionSnapshot.ts"
+  ],
+  "acceptanceCriteria": [
+    "Both cache factories derive TTL from authRefreshWindowSeconds.",
+    "Config and server loading stop exposing independent cache TTL knobs.",
+    "Architecture and caching docs explain the shared freshness invariant."
+  ],
+  "execution": {
+    "timeoutMinutes": 5,
+    "fakeResponsesFile": "./smoke.responses.jsonl",
+    "allowedTools": ["replace"]
+  },
+  "validation": {
+    "commands": [
+      {
+        "command": "rg -n \"authRefreshWindowSeconds|sessionCacheTtlSeconds|permissionCacheTtlSeconds\" README.md docs packages",
+        "workingDirectory": "../../../../fixtures/local-monorepo",
+        "description": "Quick reference scan for the freshness knob and legacy cache TTL names.",
+        "expectExitCode": 0
+      }
+    ],
+    "fileAssertions": [
+      {
+        "path": "../../../../fixtures/local-monorepo/packages/api/src/lib/session-cache.ts",
+        "mustContain": ["authRefreshWindowSeconds"],
+        "mustNotContain": ["sessionCacheTtlSeconds"]
+      },
+      {
+        "path": "../../../../fixtures/local-monorepo/packages/api/src/lib/permission-cache.ts",
+        "mustContain": ["authRefreshWindowSeconds"],
+        "mustNotContain": ["permissionCacheTtlSeconds"]
+      },
+      {
+        "path": "../../../../fixtures/local-monorepo/packages/config/defaults.json",
+        "mustNotContain": [
+          "sessionCacheTtlSeconds",
+          "permissionCacheTtlSeconds"
+        ]
+      }
+    ],
+    "gitDiff": {
+      "mustModify": [
+        "../../../../fixtures/local-monorepo/docs/architecture.md",
+        "../../../../fixtures/local-monorepo/docs/caching.md",
+        "../../../../fixtures/local-monorepo/packages/config/defaults.json",
+        "../../../../fixtures/local-monorepo/packages/api/src/lib/types.ts",
+        "../../../../fixtures/local-monorepo/packages/api/src/lib/session-cache.ts",
+        "../../../../fixtures/local-monorepo/packages/api/src/lib/permission-cache.ts",
+        "../../../../fixtures/local-monorepo/packages/api/src/server.ts"
+      ],
+      "mustNotModify": [
+        "../../../../fixtures/local-monorepo/packages/api/src/routes/notes.ts",
+        "../../../../fixtures/local-monorepo/packages/api/src/routes/sessions.ts",
+        "../../../../fixtures/local-monorepo/packages/web/src/hooks/useWorkspaceNotes.ts",
+        "../../../../fixtures/local-monorepo/packages/worker/src/jobs/sessionSnapshot.ts"
+      ]
+    },
+    "resultMustContain": [
+      "authRefreshWindowSeconds",
+      "docs/caching.md",
+      "packages/api/src/server.ts"
+    ],
+    "validatorFile": "./validator.js"
+  }
+}

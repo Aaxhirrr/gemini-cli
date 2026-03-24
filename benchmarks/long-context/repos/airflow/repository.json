@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schemas/repository.schema.json",
+  "schemaVersion": "1.0.0",
+  "repositoryId": "airflow",
+  "title": "apache/airflow",
+  "description": "Large workflow orchestration codebase with Python orchestration logic, web surfaces, providers, and deployment tooling.",
+  "defaultBranch": "main",
+  "source": {
+    "kind": "git",
+    "createdAt": "2026-03-24",
+    "url": "https://github.com/apache/airflow.git",
+    "pinnedCommit": "e20026b4491ce11b2a22637a94beeed4530817cc",
+    "license": "Apache-2.0"
+  },
+  "languages": ["python", "typescript"],
+  "frameworks": ["apache-airflow", "flask", "react"],
+  "stats": {
+    "approxFileCount": 9000,
+    "approxTokenCount": 7000000,
+    "entrypointFiles": [
+      "./README.md",
+      "./pyproject.toml",
+      "./airflow/__init__.py",
+      "./airflow/cli/cli_config.py"
+    ]
+  },
+  "environment": {
+    "profileId": "python-web-monorepo"
+  },
+  "tasks": []
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "../../schemas/repository.schema.json",
+  "schemaVersion": "1.0.0",
+  "repositoryId": "aspnetcore",
+  "title": "dotnet/aspnetcore",
+  "description": "Large ASP.NET Core repository spanning hosting, routing, auth, Razor, Blazor, middleware, and end-to-end web application templates.",
+  "defaultBranch": "main",
+  "source": {
+    "kind": "git",
+    "createdAt": "2026-03-24",
+    "url": "https://github.com/dotnet/aspnetcore.git",
+    "pinnedCommit": "d8491f4280195c83ad27e1550b648ea2d77d9569",
+    "license": "MIT"
+  },
+  "languages": ["csharp", "typescript"],
+  "frameworks": ["asp.net-core", "blazor"],
+  "stats": {
+    "approxFileCount": 28000,
+    "approxTokenCount": 21000000,
+    "entrypointFiles": [
+      "./README.md",
+      "./global.json",
+      "./src/Hosting/Hosting/src/WebHostBuilder.cs"
+    ]
+  },
+  "environment": {
+    "profileId": "dotnet-web-stack"
+  },
+  "tasks": []
+}

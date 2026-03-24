@@ -1,0 +1,30 @@
+{
+  "$schema": "../../schemas/repository.schema.json",
+  "schemaVersion": "1.0.0",
+  "repositoryId": "elasticsearch",
+  "title": "elastic/elasticsearch",
+  "description": "Massive distributed search engine codebase with deep Java architecture, build logic, plugins, and storage internals.",
+  "defaultBranch": "main",
+  "source": {
+    "kind": "git",
+    "createdAt": "2026-03-24",
+    "url": "https://github.com/elastic/elasticsearch.git",
+    "pinnedCommit": "135e015ff6b74f3f9eb44fd226c9ada91e3ed824",
+    "license": "AGPL-3.0, SSPL-1.0, Elastic-2.0"
+  },
+  "languages": ["java"],
+  "frameworks": ["elasticsearch", "lucene", "gradle"],
+  "stats": {
+    "approxFileCount": 35000,
+    "approxTokenCount": 22000000,
+    "entrypointFiles": [
+      "./README.asciidoc",
+      "./build.gradle",
+      "./server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java"
+    ]
+  },
+  "environment": {
+    "profileId": "java-distributed-systems"
+  },
+  "tasks": []
+}

@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/benchmarks/long-context/schemas/run-result.schema.json",
+  "title": "Long-Context Benchmark Run Result",
+  "description": "Serializable run result record for one task execution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "benchmarkId",
+    "repositoryLanguages",
+    "repositoryId",
+    "taskDifficulty",
+    "taskCategory",
+    "taskTags",
+    "model",
+    "runMode",
+    "taskId",
+    "status",
+    "startedAt",
+    "finishedAt",
+    "durationMs",
+    "artifacts",
+    "validation",
+    "summary"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "$ref": "#/$defs/semanticVersion"
+    },
+    "benchmarkId": {
+      "$ref": "#/$defs/id"
+    },
+    "repositoryId": {
+      "$ref": "#/$defs/id"
+    },
+    "repositoryLanguages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "taskId": {
+      "$ref": "#/$defs/id"
+    },
+    "taskDifficulty": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard"]
+    },
+    "taskCategory": {
+      "type": "string",
+      "enum": ["code-change", "audit", "analysis"]
+    },
+    "taskTags": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "uniqueItems": true
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runMode": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["passed", "failed", "errored", "partial"]
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "failureCategory": {
+      "type": "string",
+      "enum": [
+        "environment_setup",
+        "navigation_retrieval",
+        "context_overflow_compression_loss",
+        "wrong_architectural_scope",
+        "incorrect_implementation",
+        "validation_avoidance",
+        "tool_misuse",
+        "flaky_task",
+        "manual_review"
+      ]
+    },
+    "needsManualReview": {
+      "type": "boolean"
+    },
+    "filesModified": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "resultText": {
+      "type": "string"
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outputDir",
+        "stdoutLog",
+        "stderrLog",
+        "promptSnapshot",
+        "resultJson"
+      ],
+      "properties": {
+        "outputDir": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workspaceDir": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stdoutLog": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stderrLog": {
+          "type": "string",
+          "minLength": 1
+        },
+        "promptSnapshot": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resultJson": {
+          "type": "string",
+          "minLength": 1
+        },
+        "activityLog": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "totalTokens",
+        "promptTokens",
+        "candidateTokens",
+        "cachedTokens",
+        "thoughtsTokens",
+        "toolTokens",
+        "toolCalls",
+        "toolCallsByName",
+        "files",
+        "contextSignals"
+      ],
+      "properties": {
+        "totalTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "promptTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidateTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cachedTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "thoughtsTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolCalls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolCallsByName": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["totalLinesAdded", "totalLinesRemoved"],
+          "properties": {
+            "totalLinesAdded": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "totalLinesRemoved": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "contextSignals": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "compressionMentions",
+            "overflowMentions",
+            "toolMaskingMentions"
+          ],
+          "properties": {
+            "compressionMentions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "overflowMentions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "toolMaskingMentions": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commandResults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/checkResult"
+          }
+        },
+        "fileAssertionResults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/checkResult"
+          }
+        },
+        "gitDiffResults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/checkResult"
+          }
+        },
+        "resultContentResults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/checkResult"
+          }
+        },
+        "validatorResult": {
+          "$ref": "#/$defs/checkResult"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "semanticVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+    },
+    "checkResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "skipped", "errored"]
+        },
+        "details": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

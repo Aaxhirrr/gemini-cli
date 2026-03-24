@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/benchmarks/long-context/schemas/benchmark-manifest.schema.json",
+  "title": "Long-Context Benchmark Manifest",
+  "description": "Top-level manifest that enumerates benchmark repositories for the long-context subsystem.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "benchmarkId",
+    "benchmarkVersion",
+    "title",
+    "description",
+    "maintainers",
+    "repositories"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "$ref": "#/$defs/semanticVersion"
+    },
+    "benchmarkId": {
+      "$ref": "#/$defs/id"
+    },
+    "benchmarkVersion": {
+      "$ref": "#/$defs/semanticVersion"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "maintainers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "supportedRunnerVersion": {
+      "$ref": "#/$defs/semanticVersion"
+    },
+    "defaultModelMatrix": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/modelRef"
+      }
+    },
+    "shards": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/shard"
+      }
+    },
+    "curationRubric": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minimumRepositories": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "targetRepositories": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "requiredLanguageFamilies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "fullSnapshotsDefault": {
+          "type": "boolean"
+        }
+      }
+    },
+    "repositories": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/repositoryRef"
+      }
+    }
+  },
+  "$defs": {
+    "semanticVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(\\./|\\.\\./).+"
+    },
+    "repositoryRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repositoryId", "repositoryFile"],
+      "properties": {
+        "repositoryId": {
+          "$ref": "#/$defs/id"
+        },
+        "repositoryFile": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "modelRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model"],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "shard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shardId"],
+      "properties": {
+        "shardId": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repositoryIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "taskIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "modes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

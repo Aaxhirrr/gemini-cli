@@ -1,0 +1,30 @@
+{
+  "$schema": "../../schemas/repository.schema.json",
+  "schemaVersion": "1.0.0",
+  "repositoryId": "kubernetes",
+  "title": "kubernetes/kubernetes",
+  "description": "Large-scale Go monorepo for Kubernetes core control plane, API machinery, controllers, and generated infrastructure.",
+  "defaultBranch": "master",
+  "source": {
+    "kind": "git",
+    "createdAt": "2026-03-24",
+    "url": "https://github.com/kubernetes/kubernetes.git",
+    "pinnedCommit": "36925dc0c7b3f13557b08bb57b4fbcbf36f58d78",
+    "license": "Apache-2.0"
+  },
+  "languages": ["go"],
+  "frameworks": ["kubernetes", "grpc", "controller-runtime"],
+  "stats": {
+    "approxFileCount": 23000,
+    "approxTokenCount": 18000000,
+    "entrypointFiles": [
+      "./README.md",
+      "./go.mod",
+      "./cmd/kube-apiserver/apiserver.go"
+    ]
+  },
+  "environment": {
+    "profileId": "go-kubernetes"
+  },
+  "tasks": []
+}

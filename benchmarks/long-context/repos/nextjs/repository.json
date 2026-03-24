@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schemas/repository.schema.json",
+  "schemaVersion": "1.0.0",
+  "repositoryId": "nextjs",
+  "title": "vercel/next.js",
+  "description": "Production-grade web framework monorepo spanning TypeScript application layers, React integrations, and Rust performance tooling.",
+  "defaultBranch": "canary",
+  "source": {
+    "kind": "git",
+    "createdAt": "2026-03-24",
+    "url": "https://github.com/vercel/next.js.git",
+    "pinnedCommit": "aa3ba7ed15db36f1d21c827dd695a4e24a8955c6",
+    "license": "MIT"
+  },
+  "languages": ["typescript", "javascript", "rust"],
+  "frameworks": ["next.js", "react", "turbopack"],
+  "stats": {
+    "approxFileCount": 15000,
+    "approxTokenCount": 11000000,
+    "entrypointFiles": [
+      "./README.md",
+      "./package.json",
+      "./packages/next/src/bin/next.ts",
+      "./crates/next-build/src/main.rs"
+    ]
+  },
+  "environment": {
+    "profileId": "node-rust-monorepo"
+  },
+  "tasks": []
+}

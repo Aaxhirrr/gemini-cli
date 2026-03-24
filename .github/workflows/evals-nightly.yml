@@ -13,6 +13,14 @@ on:
         description: 'Test name pattern or file name'
         required: false
         type: 'string'
+      run_long_context_benchmark:
+        description: 'Run the long-context benchmark lane'
+        type: 'boolean'
+        default: true
+      long_context_task_limit:
+        description: 'Optional task limit for the long-context benchmark run'
+        required: false
+        type: 'string'
 
 permissions:
   contents: 'read'
@@ -83,9 +91,75 @@ jobs:
           path: 'evals/logs'
           retention-days: 7
 
+  long_context_benchmark:
+    name: 'Long-Context Benchmark (nightly)'
+    runs-on: 'gemini-cli-ubuntu-16-core'
+    if: "github.repository == 'google-gemini/gemini-cli'"
+    env:
+      LONG_CONTEXT_BENCHMARK_ARTIFACT_DIR: '${{ github.workspace }}/artifacts/long-context-benchmark'
+      LONG_CONTEXT_BENCHMARK_TASK_LIMIT: '${{ github.event.inputs.long_context_task_limit }}'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8' # ratchet:actions/checkout@v5
+
+      - name: 'Set up Node.js'
+        uses: 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020' # ratchet:actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: 'Check benchmark wiring availability'
+        id: 'benchmark_availability'
+        run: |
+          if [[ -f scripts/benchmarks/long-context/validate-dataset.ts && \
+                -f scripts/benchmarks/long-context/check-repo.ts && \
+                -f scripts/benchmarks/long-context/run.ts && \
+                -f scripts/benchmarks/long-context/aggregate-results.ts && \
+                -f benchmarks/long-context/manifest.json ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 'Install dependencies'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && (github.event_name == 'schedule' || github.event.inputs.run_long_context_benchmark != 'false') }}"
+        run: 'npm ci'
+
+      - name: 'Build project'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && (github.event_name == 'schedule' || github.event.inputs.run_long_context_benchmark != 'false') }}"
+        run: 'npm run build'
+
+      - name: 'Run long-context benchmark nightly lane'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && (github.event_name == 'schedule' || github.event.inputs.run_long_context_benchmark != 'false') }}"
+        env:
+          GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
+        run: 'npm run bench:long-context:nightly'
+
+      - name: 'Upload long-context benchmark artifacts'
+        if: 'always()'
+        uses: 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' # ratchet:actions/upload-artifact@v4
+        with:
+          name: 'long-context-benchmark-nightly-artifacts'
+          if-no-files-found: 'ignore'
+          path: |
+            ${{ env.LONG_CONTEXT_BENCHMARK_ARTIFACT_DIR }}
+            benchmarks/long-context/manifest.json
+            benchmarks/long-context/schemas
+
+      - name: 'Summarize long-context benchmark status'
+        if: 'always()'
+        run: |
+          if [[ "${{ steps.benchmark_availability.outputs.available }}" != "true" ]]; then
+            echo "Long-context benchmark nightly lane skipped because the benchmark wiring is not present on this ref." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ github.event_name }}" != "schedule" && "${{ github.event.inputs.run_long_context_benchmark }}" == "false" ]]; then
+            echo "Long-context benchmark nightly lane was disabled for this manual dispatch." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Long-context benchmark nightly lane completed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   aggregate-results:
     name: 'Aggregate Results'
-    needs: ['evals']
+    needs: ['evals', 'long_context_benchmark']
     if: "github.repository == 'google-gemini/gemini-cli' && always()"
     runs-on: 'gemini-cli-ubuntu-16-core'
     steps:

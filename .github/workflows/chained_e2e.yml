@@ -315,6 +315,87 @@ jobs:
           GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
         run: 'npm run test:always_passing_evals'
 
+  long_context_benchmark_smoke:
+    name: 'Long-Context Benchmark Smoke'
+    needs:
+      - 'merge_queue_skipper'
+      - 'parse_run_context'
+    runs-on: 'gemini-cli-ubuntu-16-core'
+    if: |
+      github.repository == 'google-gemini/gemini-cli' && always() && (needs.merge_queue_skipper.result !='success' || needs.merge_queue_skipper.outputs.skip != 'true')
+    env:
+      LONG_CONTEXT_BENCHMARK_ARTIFACT_DIR: '${{ github.workspace }}/artifacts/long-context-benchmark'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955' # ratchet:actions/checkout@v5
+        with:
+          ref: '${{ needs.parse_run_context.outputs.sha }}'
+          repository: '${{ needs.parse_run_context.outputs.repository }}'
+          fetch-depth: 0
+
+      - name: 'Set up Node.js 20.x'
+        uses: 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020' # ratchet:actions-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: 'Check benchmark wiring availability'
+        id: 'benchmark_availability'
+        run: |
+          if [[ -f scripts/benchmarks/long-context/validate-dataset.ts && \
+                -f scripts/benchmarks/long-context/check-repo.ts && \
+                -f scripts/benchmarks/long-context/run.ts && \
+                -f scripts/benchmarks/long-context/aggregate-results.ts && \
+                -f benchmarks/long-context/manifest.json ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 'Check if benchmark smoke should run'
+        id: 'check_long_context_benchmark'
+        env:
+          CHANGE_SCOPE: 'long-context-benchmark'
+        run: |
+          SHOULD_RUN=$(node scripts/changed_prompt.js)
+          echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+
+      - name: 'Install dependencies'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && steps.check_long_context_benchmark.outputs.should_run == 'true' }}"
+        run: 'npm ci'
+
+      - name: 'Build project'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && steps.check_long_context_benchmark.outputs.should_run == 'true' }}"
+        run: 'npm run build'
+
+      - name: 'Run long-context benchmark smoke'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && steps.check_long_context_benchmark.outputs.should_run == 'true' }}"
+        env:
+          GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
+        run: 'npm run bench:long-context:smoke'
+
+      - name: 'Upload long-context benchmark artifacts'
+        if: 'always()'
+        uses: 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' # ratchet:actions/upload-artifact@v4
+        with:
+          name: 'long-context-benchmark-smoke-artifacts'
+          if-no-files-found: 'ignore'
+          path: |
+            ${{ env.LONG_CONTEXT_BENCHMARK_ARTIFACT_DIR }}
+            benchmarks/long-context/manifest.json
+            benchmarks/long-context/schemas
+
+      - name: 'Summarize benchmark smoke status'
+        if: 'always()'
+        run: |
+          if [[ "${{ steps.benchmark_availability.outputs.available }}" != "true" ]]; then
+            echo "Long-context benchmark smoke skipped because the benchmark wiring is not present on this ref." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.check_long_context_benchmark.outputs.should_run }}" != "true" ]]; then
+            echo "Long-context benchmark smoke skipped because no benchmark-related changes were detected." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Long-context benchmark smoke completed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   e2e:
     name: 'E2E'
     if: |
@@ -324,6 +405,7 @@ jobs:
       - 'e2e_mac'
       - 'e2e_windows'
       - 'evals'
+      - 'long_context_benchmark_smoke'
       - 'merge_queue_skipper'
     runs-on: 'gemini-cli-ubuntu-16-core'
     steps:
@@ -332,7 +414,8 @@ jobs:
           if [[ ${NEEDS_E2E_LINUX_RESULT} != 'success' || \
                ${NEEDS_E2E_MAC_RESULT} != 'success' || \
                ${NEEDS_E2E_WINDOWS_RESULT} != 'success' || \
-               ${NEEDS_EVALS_RESULT} != 'success' ]]; then
+               ${NEEDS_EVALS_RESULT} != 'success' || \
+               ${NEEDS_LONG_CONTEXT_BENCHMARK_SMOKE_RESULT} != 'success' ]]; then
             echo "One or more E2E jobs failed."
             exit 1
           fi
@@ -342,6 +425,7 @@ jobs:
           NEEDS_E2E_MAC_RESULT: '${{ needs.e2e_mac.result }}'
           NEEDS_E2E_WINDOWS_RESULT: '${{ needs.e2e_windows.result }}'
           NEEDS_EVALS_RESULT: '${{ needs.evals.result }}'
+          NEEDS_LONG_CONTEXT_BENCHMARK_SMOKE_RESULT: '${{ needs.long_context_benchmark_smoke.result }}'
 
   set_workflow_status:
     runs-on: 'gemini-cli-ubuntu-16-core'

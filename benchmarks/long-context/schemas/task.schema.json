@@ -1,0 +1,294 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/benchmarks/long-context/schemas/task.schema.json",
+  "title": "Long-Context Benchmark Task",
+  "description": "Machine-readable task definition for a benchmark task within a repository task directory.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "taskId",
+    "title",
+    "summary",
+    "category",
+    "difficulty",
+    "promptFile",
+    "curatorNotesFile",
+    "tags",
+    "recommendedReadFiles",
+    "expectedTouchedFiles",
+    "protectedFiles",
+    "validation"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "$ref": "#/$defs/semanticVersion"
+    },
+    "taskId": {
+      "$ref": "#/$defs/id"
+    },
+    "repositoryId": {
+      "$ref": "#/$defs/id"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "enum": ["code-change", "audit", "analysis"]
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard"]
+    },
+    "taskFamily": {
+      "$ref": "#/$defs/id"
+    },
+    "promptFile": {
+      "$ref": "#/$defs/relativePath"
+    },
+    "curatorNotesFile": {
+      "$ref": "#/$defs/relativePath"
+    },
+    "tags": {
+      "$ref": "#/$defs/tagList"
+    },
+    "targetComponents": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "recommendedReadFiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/relativePath"
+      },
+      "uniqueItems": true
+    },
+    "expectedTouchedFiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/relativePath"
+      },
+      "uniqueItems": true
+    },
+    "protectedFiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relativePath"
+      },
+      "uniqueItems": true
+    },
+    "expectedLongContextReasoning": {
+      "type": "string",
+      "minLength": 1
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timeoutMinutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxPromptTokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxCostUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fakeResponsesFile": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "allowedTools": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "setupCommands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/validationCommand"
+          }
+        },
+        "resetCommands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/validationCommand"
+          }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/validationCommand"
+          }
+        },
+        "fileAssertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileAssertion"
+          }
+        },
+        "gitDiff": {
+          "$ref": "#/$defs/gitDiff"
+        },
+        "resultMustContain": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "validatorFile": {
+          "$ref": "#/$defs/relativePath"
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["commands"]
+        },
+        {
+          "required": ["fileAssertions"]
+        },
+        {
+          "required": ["gitDiff"]
+        },
+        {
+          "required": ["resultMustContain"]
+        },
+        {
+          "required": ["validatorFile"]
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "semanticVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(\\./|\\.\\./).+"
+    },
+    "tagList": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "uniqueItems": true
+    },
+    "validationCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command"],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workingDirectory": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "description": {
+          "type": "string"
+        },
+        "expectExitCode": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "fileAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "mustContain": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "mustNotContain": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["mustContain"]
+        },
+        {
+          "required": ["mustNotContain"]
+        }
+      ]
+    },
+    "gitDiff": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mustModify": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "uniqueItems": true
+        },
+        "mustNotModify": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

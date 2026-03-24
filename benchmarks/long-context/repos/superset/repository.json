@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schemas/repository.schema.json",
+  "schemaVersion": "1.0.0",
+  "repositoryId": "superset",
+  "title": "apache/superset",
+  "description": "Analytics platform repository with Python backend services, SQL and security layers, and a large React and TypeScript frontend.",
+  "defaultBranch": "master",
+  "source": {
+    "kind": "git",
+    "createdAt": "2026-03-24",
+    "url": "https://github.com/apache/superset.git",
+    "pinnedCommit": "5d9f53ff0cbf815a7e3c87d9ffc1bb15b35d557f",
+    "license": "Apache-2.0"
+  },
+  "languages": ["python", "typescript"],
+  "frameworks": ["apache-superset", "flask", "react"],
+  "stats": {
+    "approxFileCount": 11000,
+    "approxTokenCount": 8500000,
+    "entrypointFiles": [
+      "./README.md",
+      "./pyproject.toml",
+      "./superset/__init__.py",
+      "./superset-frontend/package.json"
+    ]
+  },
+  "environment": {
+    "profileId": "python-typescript-analytics"
+  },
+  "tasks": []
+}

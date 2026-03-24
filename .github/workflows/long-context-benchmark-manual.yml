@@ -1,0 +1,158 @@
+name: 'Long Context Benchmark (Manual)'
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag, or SHA to run against'
+        required: false
+        default: 'main'
+        type: 'string'
+      target_repo:
+        description: 'Optional repository identifier for the benchmark scripts to consume'
+        required: false
+        type: 'string'
+      task_id:
+        description: 'Optional task identifier for the benchmark scripts to consume'
+        required: false
+        type: 'string'
+      task_limit:
+        description: 'Optional task limit for this manual run'
+        required: false
+        type: 'string'
+      validate_dataset:
+        description: 'Validate the long-context dataset before running'
+        required: true
+        default: true
+        type: 'boolean'
+      intake_repo:
+        description: 'Run repository intake before executing the benchmark'
+        required: true
+        default: false
+        type: 'boolean'
+      scaffold_task:
+        description: 'Run task scaffolding before executing the benchmark'
+        required: true
+        default: false
+        type: 'boolean'
+      check_repo:
+        description: 'Run repository checks before executing the benchmark'
+        required: true
+        default: true
+        type: 'boolean'
+      run_benchmark:
+        description: 'Execute the long-context benchmark runner'
+        required: true
+        default: true
+        type: 'boolean'
+      aggregate_results:
+        description: 'Aggregate benchmark results after execution'
+        required: true
+        default: true
+        type: 'boolean'
+
+permissions:
+  contents: 'read'
+  packages: 'read'
+
+defaults:
+  run:
+    shell: 'bash'
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.event.inputs.ref || github.ref }}'
+  cancel-in-progress: false
+
+jobs:
+  long_context_benchmark:
+    name: 'Long-Context Benchmark (manual)'
+    if: "github.repository == 'google-gemini/gemini-cli'"
+    runs-on: 'gemini-cli-ubuntu-16-core'
+    env:
+      LONG_CONTEXT_BENCHMARK_ROOT: 'benchmarks/long-context'
+      LONG_CONTEXT_BENCHMARK_MODE: 'manual'
+      LONG_CONTEXT_BENCHMARK_TARGET_REPO: '${{ github.event.inputs.target_repo }}'
+      LONG_CONTEXT_BENCHMARK_TASK_ID: '${{ github.event.inputs.task_id }}'
+      LONG_CONTEXT_BENCHMARK_TASK_LIMIT: '${{ github.event.inputs.task_limit }}'
+      LONG_CONTEXT_BENCHMARK_ARTIFACT_DIR: '${{ github.workspace }}/artifacts/long-context-benchmark'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8' # ratchet:actions/checkout@v5
+        with:
+          ref: '${{ github.event.inputs.ref || github.ref }}'
+          fetch-depth: 0
+
+      - name: 'Set up Node.js'
+        uses: 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020' # ratchet:actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: 'Check benchmark wiring availability'
+        id: 'benchmark_availability'
+        run: |
+          if [[ -f scripts/benchmarks/long-context/validate-dataset.ts && \
+                -f scripts/benchmarks/long-context/intake-repo.ts && \
+                -f scripts/benchmarks/long-context/scaffold-task.ts && \
+                -f scripts/benchmarks/long-context/check-repo.ts && \
+                -f scripts/benchmarks/long-context/run.ts && \
+                -f scripts/benchmarks/long-context/aggregate-results.ts && \
+                -f benchmarks/long-context/manifest.json ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 'Install dependencies'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' }}"
+        run: 'npm ci'
+
+      - name: 'Build project'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' }}"
+        run: 'npm run build'
+
+      - name: 'Validate long-context dataset'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && github.event.inputs.validate_dataset == 'true' }}"
+        run: 'npm run bench:long-context:validate-dataset'
+
+      - name: 'Intake benchmark repository'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && github.event.inputs.intake_repo == 'true' }}"
+        run: 'npm run bench:long-context:intake-repo'
+
+      - name: 'Scaffold benchmark task'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && github.event.inputs.scaffold_task == 'true' }}"
+        run: 'npm run bench:long-context:scaffold-task'
+
+      - name: 'Check benchmark repository'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && github.event.inputs.check_repo == 'true' }}"
+        run: 'npm run bench:long-context:check-repo'
+
+      - name: 'Run long-context benchmark'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && github.event.inputs.run_benchmark == 'true' }}"
+        env:
+          GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
+        run: 'npm run bench:long-context:run'
+
+      - name: 'Aggregate long-context benchmark results'
+        if: "${{ steps.benchmark_availability.outputs.available == 'true' && github.event.inputs.aggregate_results == 'true' }}"
+        run: 'npm run bench:long-context:aggregate-results'
+
+      - name: 'Upload long-context benchmark artifacts'
+        if: 'always()'
+        uses: 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' # ratchet:actions/upload-artifact@v4
+        with:
+          name: 'long-context-benchmark-manual-artifacts'
+          if-no-files-found: 'ignore'
+          path: |
+            ${{ env.LONG_CONTEXT_BENCHMARK_ARTIFACT_DIR }}
+            benchmarks/long-context/manifest.json
+            benchmarks/long-context/schemas
+
+      - name: 'Summarize manual benchmark status'
+        if: 'always()'
+        run: |
+          if [[ "${{ steps.benchmark_availability.outputs.available }}" != "true" ]]; then
+            echo "Long-context benchmark manual workflow skipped because the benchmark wiring is not present on this ref." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Long-context benchmark manual workflow completed." >> "$GITHUB_STEP_SUMMARY"
+          fi

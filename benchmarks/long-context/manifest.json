@@ -1,0 +1,95 @@
+{
+  "$schema": "./schemas/benchmark-manifest.schema.json",
+  "schemaVersion": "1.0.0",
+  "benchmarkId": "long-context.seed.local",
+  "benchmarkVersion": "0.2.0",
+  "title": "Long-Context Seed and Intake Dataset",
+  "description": "Seed manifest for runnable local long-context tasks plus real repository intake records that expand the curation corpus before task extraction is complete.",
+  "maintainers": ["benchmark-data-schema-docs"],
+  "supportedRunnerVersion": "0.1.0",
+  "defaultModelMatrix": [
+    {
+      "model": "gemini-2.5-pro",
+      "label": "seed-baseline"
+    }
+  ],
+  "shards": [
+    {
+      "shardId": "smoke",
+      "title": "Smoke",
+      "description": "Deterministic single-task seed run with fake responses for CI.",
+      "taskIds": ["local-monorepo/auth-refresh-window"],
+      "modes": ["smoke"]
+    },
+    {
+      "shardId": "nightly",
+      "title": "Nightly Seed Lane",
+      "description": "Representative seed lane while larger repository curation is in flight.",
+      "taskIds": ["local-monorepo/auth-refresh-window"],
+      "modes": ["nightly", "manual"]
+    }
+  ],
+  "curationRubric": {
+    "minimumRepositories": 30,
+    "targetRepositories": 50,
+    "requiredLanguageFamilies": ["typescript", "python", "java", "go", "rust"],
+    "fullSnapshotsDefault": true
+  },
+  "repositories": [
+    {
+      "repositoryId": "local-monorepo",
+      "repositoryFile": "./repos/local-monorepo/repository.json",
+      "tags": ["synthetic", "typescript", "monorepo"]
+    },
+    {
+      "repositoryId": "kubernetes",
+      "repositoryFile": "./repos/kubernetes/repository.json",
+      "tags": ["real", "go", "kubernetes"]
+    },
+    {
+      "repositoryId": "grafana",
+      "repositoryFile": "./repos/grafana/repository.json",
+      "tags": ["real", "go", "typescript", "observability"]
+    },
+    {
+      "repositoryId": "nextjs",
+      "repositoryFile": "./repos/nextjs/repository.json",
+      "tags": ["real", "typescript", "react", "web-framework"]
+    },
+    {
+      "repositoryId": "airflow",
+      "repositoryFile": "./repos/airflow/repository.json",
+      "tags": ["real", "python", "workflow-orchestration"]
+    },
+    {
+      "repositoryId": "superset",
+      "repositoryFile": "./repos/superset/repository.json",
+      "tags": ["real", "python", "typescript", "analytics"]
+    },
+    {
+      "repositoryId": "elasticsearch",
+      "repositoryFile": "./repos/elasticsearch/repository.json",
+      "tags": ["real", "java", "search"]
+    },
+    {
+      "repositoryId": "kafka",
+      "repositoryFile": "./repos/kafka/repository.json",
+      "tags": ["real", "java", "scala", "streaming"]
+    },
+    {
+      "repositoryId": "rails",
+      "repositoryFile": "./repos/rails/repository.json",
+      "tags": ["real", "ruby", "web-framework"]
+    },
+    {
+      "repositoryId": "aspnetcore",
+      "repositoryFile": "./repos/aspnetcore/repository.json",
+      "tags": ["real", "csharp", "web-framework"]
+    },
+    {
+      "repositoryId": "rust",
+      "repositoryFile": "./repos/rust/repository.json",
+      "tags": ["real", "rust", "compiler"]
+    }
+  ]
+}
