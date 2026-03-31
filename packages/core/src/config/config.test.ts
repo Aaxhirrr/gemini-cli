@@ -2387,6 +2387,23 @@ describe('Config setExperiments logging', () => {
 
     debugSpy.mockRestore();
   });
+
+  it('skips debug logging when the experiments payload is empty', () => {
+    const config = new Config(baseParams);
+    const debugSpy = vi
+      .spyOn(debugLogger, 'debug')
+      .mockImplementation(() => {});
+
+    config.setExperiments({
+      flags: {},
+      experimentIds: [],
+    });
+
+    expect(debugSpy).not.toHaveBeenCalledWith(
+      'Experiments loaded',
+      expect.any(String),
+    );
+  });
 });
 
 describe('Availability Service Integration', () => {

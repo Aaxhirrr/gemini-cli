@@ -2986,6 +2986,9 @@ export class Config implements McpContext {
       experimentIds: experiments.experimentIds ?? [],
       flags: flagSummaries,
     };
+    if (summary.experimentIds.length === 0 && summary.flags.length === 0) {
+      return;
+    }
     const summaryString = inspect(summary, {
       depth: null,
       maxArrayLength: null,

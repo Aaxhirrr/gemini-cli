@@ -161,6 +161,15 @@ describe('StartupProfiler', () => {
       expect(recordStartupPerformance).not.toHaveBeenCalled();
     });
 
+    it('should stay quiet when there are no phases to flush', () => {
+      const debugSpy = vi.spyOn(debugLogger, 'debug');
+
+      profiler.flush(mockConfig);
+
+      expect(debugSpy).not.toHaveBeenCalled();
+      expect(recordStartupPerformance).not.toHaveBeenCalled();
+    });
+
     it('should include common details in all metrics', () => {
       const handle = profiler.start('test_phase');
       handle?.end();

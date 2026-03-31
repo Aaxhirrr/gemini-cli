@@ -59,9 +59,18 @@ export class IgnoreFileParser implements IgnoreFileFilter {
     let content: string;
     try {
       content = fs.readFileSync(patternsFilePath, 'utf-8');
-    } catch (_error) {
-      debugLogger.debug(
-        `Ignore file not found: ${patternsFilePath}, continue without it.`,
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        return [];
+      }
+
+      debugLogger.warn(
+        `Failed to load ignore patterns from: ${patternsFilePath}`,
+        error,
       );
       return [];
     }

@@ -1227,43 +1227,33 @@ describe('Session', () => {
 
     // Adapt web stream to async iterable
     async function* asyncStream() {
-      process.stdout.write('TEST: asyncStream started\n');
       streamStarted(true);
       const reader = stream.getReader();
       try {
         while (true) {
-          process.stdout.write('TEST: waiting for read\n');
           const { done, value } = await reader.read();
-          process.stdout.write(`TEST: read returned done=${done}\n`);
           if (done) break;
           yield value;
         }
       } finally {
-        process.stdout.write('TEST: releasing lock\n');
         reader.releaseLock();
       }
     }
 
     mockChat.sendMessageStream.mockResolvedValue(asyncStream());
 
-    process.stdout.write('TEST: calling prompt\n');
     const promptPromise = session.prompt({
       sessionId: 'session-1',
       prompt: [{ type: 'text', text: 'Hi' }],
     });
 
-    process.stdout.write('TEST: waiting for streamStarted\n');
     await streamStartedPromise;
-    process.stdout.write('TEST: streamStarted\n');
     await session.cancelPendingPrompt();
-    process.stdout.write('TEST: cancelled\n');
 
     // Close the stream to allow prompt loop to continue and check aborted signal
     streamController!.close();
-    process.stdout.write('TEST: stream closed\n');
 
     const result = await promptPromise;
-    process.stdout.write(`TEST: result received ${JSON.stringify(result)}\n`);
     expect(result).toEqual({ stopReason: 'cancelled' });
   });
 

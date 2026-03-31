@@ -12,6 +12,7 @@ export default defineConfig({
     environment: 'node',
     include: ['scripts/tests/**/*.test.{js,ts}'],
     setupFiles: ['scripts/tests/test-setup.ts'],
+    silent: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

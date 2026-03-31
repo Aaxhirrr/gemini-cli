@@ -5,8 +5,9 @@
  */
 
 import { vi, beforeEach, afterEach } from 'vitest';
+import { setMaxListeners } from 'node:events';
 import { format } from 'node:util';
-import { coreEvents } from '@google/gemini-cli-core';
+import { coreEvents, uiTelemetryService } from '@google/gemini-cli-core';
 import { themeManager } from './src/ui/themes/theme-manager.js';
 
 // Unset CI environment variable so that ink renders dynamically as it does in a real terminal
@@ -16,8 +17,10 @@ if (process.env.CI !== undefined) {
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
-// Increase max listeners to avoid warnings in large test suites
-coreEvents.setMaxListeners(100);
+// Raise listener ceilings for long-running UI suites without muting other warnings.
+setMaxListeners(200);
+coreEvents.setMaxListeners(200);
+uiTelemetryService.setMaxListeners(200);
 
 // Unset NO_COLOR environment variable to ensure consistent theme behavior between local and CI test runs
 if (process.env.NO_COLOR !== undefined) {

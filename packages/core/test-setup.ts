@@ -9,12 +9,17 @@ if (process.env.NO_COLOR !== undefined) {
   delete process.env.NO_COLOR;
 }
 
+import { setMaxListeners } from 'node:events';
 import { setSimulate429 } from './src/utils/testUtils.js';
 import { vi, afterEach } from 'vitest';
 import { coreEvents } from './src/utils/events.js';
+import { uiTelemetryService } from './src/telemetry/uiTelemetry.js';
 
-// Increase max listeners to avoid warnings in large test suites
-coreEvents.setMaxListeners(100);
+// Raise listener ceilings for long-running suites without suppressing other warnings.
+setMaxListeners(200);
+process.setMaxListeners(200);
+coreEvents.setMaxListeners(200);
+uiTelemetryService.setMaxListeners(200);
 
 // Disable 429 simulation globally for all tests
 setSimulate429(false);

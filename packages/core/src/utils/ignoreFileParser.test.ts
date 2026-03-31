@@ -10,6 +10,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { GEMINI_IGNORE_FILE_NAME } from '../config/constants.js';
+import { debugLogger } from './debugLogger.js';
 
 describe('GeminiIgnoreParser', () => {
   let projectRoot: string;
@@ -85,6 +86,18 @@ describe('GeminiIgnoreParser', () => {
       const parser = new IgnoreFileParser(projectRoot, GEMINI_IGNORE_FILE_NAME);
       expect(parser.getPatterns()).toEqual([]);
       expect(parser.isIgnored('any_file.txt')).toBe(false);
+    });
+
+    it('does not emit debug noise for missing ignore files', () => {
+      const debugSpy = vi
+        .spyOn(debugLogger, 'debug')
+        .mockImplementation(() => {});
+
+      new IgnoreFileParser(projectRoot, GEMINI_IGNORE_FILE_NAME);
+
+      expect(debugSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('Ignore file not found:'),
+      );
     });
 
     it('should return empty array for getIgnoreFilePaths when no patterns exist', () => {
@@ -214,6 +227,25 @@ describe('GeminiIgnoreParser', () => {
       const patterns = ['*.log', '!debug.log'];
       const parser = new IgnoreFileParser(projectRoot, patterns, true);
       expect(parser.getPatterns()).toEqual(patterns);
+    });
+  });
+
+  describe('when reading an ignore file fails unexpectedly', () => {
+    it('warns and continues without patterns', async () => {
+      const warnSpy = vi
+        .spyOn(debugLogger, 'warn')
+        .mockImplementation(() => {});
+      await fs.mkdir(path.join(projectRoot, GEMINI_IGNORE_FILE_NAME), {
+        recursive: true,
+      });
+
+      const parser = new IgnoreFileParser(projectRoot, GEMINI_IGNORE_FILE_NAME);
+
+      expect(parser.getPatterns()).toEqual([]);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to load ignore patterns from:'),
+        expect.any(Error),
+      );
     });
   });
 });

@@ -270,6 +270,8 @@ describe('gemini.tsx main function', () => {
     originalIsTTY = process.stdin.isTTY;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (process.stdin as any).isTTY = true;
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {

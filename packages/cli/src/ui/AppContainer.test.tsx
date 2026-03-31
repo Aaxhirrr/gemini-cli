@@ -333,6 +333,8 @@ describe('AppContainer State Management', () => {
   beforeEach(() => {
     persistentStateMock.reset();
     vi.clearAllMocks();
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     mockIdeClient.getInstance.mockReturnValue(new Promise(() => {}));
 

@@ -145,6 +145,10 @@ export class StartupProfiler {
    * Flushes buffered metrics to the telemetry system.
    */
   flush(config: Config): void {
+    if (this.phases.size === 0) {
+      return;
+    }
+
     debugLogger.debug(
       '[STARTUP] StartupProfiler.flush() called with',
       this.phases.size,
