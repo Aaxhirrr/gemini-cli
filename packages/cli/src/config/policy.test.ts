@@ -15,7 +15,7 @@ import {
   disableWorkspacePolicies,
   setDisableWorkspacePolicies,
 } from './policy.js';
-import { writeToStderr } from '@google/gemini-cli-core';
+import { debugLogger, writeToStderr } from '@google/gemini-cli-core';
 
 // Mock debugLogger to avoid noise in test output
 vi.mock('@google/gemini-cli-core', async (importOriginal) => {
@@ -155,7 +155,8 @@ describe('resolveWorkspacePolicyState', () => {
 
     expect(result.workspacePoliciesDir).toBe(policiesDir);
     expect(result.policyUpdateConfirmationRequest).toBeUndefined();
-    expect(writeToStderr).toHaveBeenCalledWith(
+    expect(writeToStderr).not.toHaveBeenCalled();
+    expect(debugLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining('Automatically accepting and loading'),
     );
   });
@@ -176,7 +177,8 @@ describe('resolveWorkspacePolicyState', () => {
 
       expect(result.workspacePoliciesDir).toBe(policiesDir);
       expect(result.policyUpdateConfirmationRequest).toBeUndefined();
-      expect(writeToStderr).toHaveBeenCalledWith(
+      expect(writeToStderr).not.toHaveBeenCalled();
+      expect(debugLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('Automatically accepting and loading'),
       );
     } finally {

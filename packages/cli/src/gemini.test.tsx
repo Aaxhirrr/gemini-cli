@@ -79,6 +79,7 @@ vi.mock('@google/gemini-cli-core', async (importOriginal) => {
     ...actual,
     recordSlowRender: vi.fn(),
     logUserPrompt: vi.fn(),
+    writeToStderr: vi.fn(),
     writeToStdout: vi.fn((...args) =>
       process.stdout.write(
         ...(args as Parameters<typeof process.stdout.write>),

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { vi, beforeEach, afterEach } from 'vitest';
+import { vi, beforeEach, afterEach, type TestContext } from 'vitest';
 import { setMaxListeners } from 'node:events';
 import { format } from 'node:util';
 import { coreEvents, uiTelemetryService } from '@google/gemini-cli-core';
@@ -14,6 +14,8 @@ import { themeManager } from './src/ui/themes/theme-manager.js';
 if (process.env.CI !== undefined) {
   delete process.env.CI;
 }
+
+process.env.VITEST = 'true';
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -34,12 +36,84 @@ import './src/test-utils/customMatchers.js';
 
 let consoleErrorSpy: vi.SpyInstance;
 let actWarnings: Array<{ message: string; stack: string }> = [];
+let bufferedTerminalOutput: { stdout: string[]; stderr: string[] } = {
+  stdout: [],
+  stderr: [],
+};
+const originalStdoutWrite = process.stdout.write;
+const originalStderrWrite = process.stderr.write;
+const originalEmitConsoleLog = coreEvents.emitConsoleLog;
+
+const stringifyWriteChunk = (
+  chunk: Parameters<typeof process.stdout.write>[0],
+  encoding?: BufferEncoding,
+) => {
+  if (Buffer.isBuffer(chunk)) {
+    return chunk.toString(encoding);
+  }
+
+  return String(chunk);
+};
+
+const captureTerminalWrite = (
+  target: 'stdout' | 'stderr',
+  args: Parameters<typeof process.stdout.write>,
+) => {
+  const [chunk, encodingOrCallback, maybeCallback] = args;
+  const encoding =
+    typeof encodingOrCallback === 'string' ? encodingOrCallback : undefined;
+  const callback =
+    typeof encodingOrCallback === 'function'
+      ? encodingOrCallback
+      : typeof maybeCallback === 'function'
+        ? maybeCallback
+        : undefined;
+
+  bufferedTerminalOutput[target].push(stringifyWriteChunk(chunk, encoding));
+  callback?.();
+
+  return true;
+};
+
+const flushCapturedTerminalOutput = (
+  context: TestContext,
+  output: typeof bufferedTerminalOutput,
+) => {
+  const hasOutput = output.stdout.length > 0 || output.stderr.length > 0;
+  if (!hasOutput || context.task.result?.state !== 'fail') {
+    return;
+  }
+
+  if (output.stdout.length > 0) {
+    originalStdoutWrite(
+      `\n[vitest captured stdout] ${context.task.name}\n${output.stdout.join('')}`,
+    );
+  }
+
+  if (output.stderr.length > 0) {
+    originalStderrWrite(
+      `\n[vitest captured stderr] ${context.task.name}\n${output.stderr.join('')}`,
+    );
+  }
+};
 
 beforeEach(() => {
   // Reset themeManager state to ensure test isolation
   themeManager.resetForTesting();
 
   actWarnings = [];
+  bufferedTerminalOutput = { stdout: [], stderr: [] };
+  process.stdout.write = ((...args) =>
+    captureTerminalWrite(
+      'stdout',
+      args as Parameters<typeof process.stdout.write>,
+    )) as typeof process.stdout.write;
+  process.stderr.write = ((...args) =>
+    captureTerminalWrite(
+      'stderr',
+      args as Parameters<typeof process.stderr.write>,
+    )) as typeof process.stderr.write;
+  coreEvents.emitConsoleLog = (() => {}) as typeof coreEvents.emitConsoleLog;
   consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
     const firstArg = args[0];
     if (
@@ -75,10 +149,15 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => {
+afterEach((context) => {
   consoleErrorSpy.mockRestore();
+  process.stdout.write = originalStdoutWrite;
+  process.stderr.write = originalStderrWrite;
+  coreEvents.emitConsoleLog = originalEmitConsoleLog;
 
   vi.unstubAllEnvs();
+
+  flushCapturedTerminalOutput(context, bufferedTerminalOutput);
 
   if (actWarnings.length > 0) {
     const messages = actWarnings

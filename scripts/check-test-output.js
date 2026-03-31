@@ -9,6 +9,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import stripAnsi from 'strip-ansi';
 
 export const OUTPUT_PATTERNS = {
   ignoreFileNotFound: /Ignore file not found:/g,
@@ -22,10 +23,30 @@ function normalizeNewlines(text) {
   return text.replace(/\r\n/g, '\n');
 }
 
+function shouldCountLine(line) {
+  const normalizedLine = stripAnsi(line).trim();
+
+  if (normalizedLine === '') {
+    return false;
+  }
+
+  if (normalizedLine === '% Coverage report from v8') {
+    return false;
+  }
+
+  if (normalizedLine.startsWith('JUNIT report written to ')) {
+    return false;
+  }
+
+  return true;
+}
+
 export function analyzeOutput(output) {
   const normalizedOutput = normalizeNewlines(output);
-  const lineCount =
-    normalizedOutput.length === 0 ? 0 : normalizedOutput.split('\n').length;
+  const rawLines =
+    normalizedOutput.length === 0 ? [] : normalizedOutput.split('\n');
+  const lineCount = rawLines.length;
+  const countedLineCount = rawLines.filter(shouldCountLine).length;
 
   const patternCounts = Object.fromEntries(
     Object.entries(OUTPUT_PATTERNS).map(([name, pattern]) => [
@@ -37,6 +58,7 @@ export function analyzeOutput(output) {
   return {
     bytes: Buffer.byteLength(output, 'utf8'),
     lines: lineCount,
+    countedLines: countedLineCount,
     patternCounts,
   };
 }
@@ -72,10 +94,10 @@ export function findThresholdViolations(analysis, thresholds) {
 
   if (
     thresholds.maxLines !== undefined &&
-    analysis.lines > thresholds.maxLines
+    analysis.countedLines > thresholds.maxLines
   ) {
     violations.push(
-      `line count ${analysis.lines} exceeds max-lines ${thresholds.maxLines}`,
+      `counted line count ${analysis.countedLines} exceeds max-lines ${thresholds.maxLines}`,
     );
   }
 
@@ -149,7 +171,8 @@ function printSummary(source, exitCode, analysis) {
     console.log(`Command exit code: ${exitCode}`);
   }
   console.log(`Bytes: ${analysis.bytes}`);
-  console.log(`Lines: ${analysis.lines}`);
+  console.log(`Raw lines: ${analysis.lines}`);
+  console.log(`Counted lines: ${analysis.countedLines}`);
   console.log('Pattern counts:');
   for (const [name, count] of Object.entries(analysis.patternCounts)) {
     console.log(`  ${name}: ${count}`);

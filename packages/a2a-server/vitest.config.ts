@@ -6,18 +6,23 @@
 
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config';
+import {
+  OneLineVitestReporter,
+  SilentJUnitReporter,
+} from '../../scripts/test-output/oneLineVitestReporter.js';
 
 export default defineConfig({
   test: {
     include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
     exclude: ['**/node_modules/**', '**/dist/**'],
     globals: true,
-    reporters: ['default', 'junit'],
+    reporters: [
+      new OneLineVitestReporter(),
+      new SilentJUnitReporter({ outputFile: 'junit.xml' }),
+    ],
     silent: true,
+    slowTestThreshold: 100000,
     setupFiles: ['./test-setup.ts'],
-    outputFile: {
-      junit: 'junit.xml',
-    },
     coverage: {
       enabled: true,
       provider: 'v8',

@@ -49,6 +49,7 @@ const mockIdeClient = vi.hoisted(() => ({
 // Mock stdout
 const mocks = vi.hoisted(() => ({
   mockStdout: { write: vi.fn() },
+  mockStderr: { write: vi.fn() },
 }));
 const terminalNotificationsMocks = vi.hoisted(() => ({
   notifyViaTerminal: vi.fn().mockResolvedValue(true),
@@ -67,20 +68,22 @@ vi.mock('@google/gemini-cli-core', async (importOriginal) => {
     ...actual,
     coreEvents: mockCoreEvents,
     IdeClient: mockIdeClient,
-    writeToStdout: vi.fn((...args) =>
-      process.stdout.write(
-        ...(args as Parameters<typeof process.stdout.write>),
-      ),
-    ),
-    writeToStderr: vi.fn((...args) =>
-      process.stderr.write(
-        ...(args as Parameters<typeof process.stderr.write>),
-      ),
-    ),
+    writeToStdout: vi.fn((message) => mocks.mockStdout.write(String(message))),
+    writeToStderr: vi.fn((message) => mocks.mockStderr.write(String(message))),
     patchStdio: vi.fn(() => () => {}),
     createWorkingStdio: vi.fn(() => ({
-      stdout: process.stdout,
-      stderr: process.stderr,
+      stdout: {
+        write: mocks.mockStdout.write,
+        columns: 80,
+        rows: 24,
+        on: vi.fn(),
+        removeListener: vi.fn(),
+      },
+      stderr: {
+        write: mocks.mockStderr.write,
+        on: vi.fn(),
+        removeListener: vi.fn(),
+      },
     })),
     enableMouseEvents: vi.fn(),
     disableMouseEvents: vi.fn(),

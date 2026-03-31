@@ -8,6 +8,10 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
+import {
+  OneLineVitestReporter,
+  SilentJUnitReporter,
+} from '../../scripts/test-output/oneLineVitestReporter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -20,12 +24,12 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**', '**/cypress/**'],
     environment: 'node',
     globals: true,
-    reporters: ['default', 'junit'],
+    reporters: [
+      new OneLineVitestReporter(),
+      new SilentJUnitReporter({ outputFile: 'junit.xml' }),
+    ],
     silent: true,
-
-    outputFile: {
-      junit: 'junit.xml',
-    },
+    slowTestThreshold: 100000,
     alias: {
       react: path.resolve(__dirname, '../../node_modules/react'),
     },

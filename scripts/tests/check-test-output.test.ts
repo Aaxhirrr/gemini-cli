@@ -32,6 +32,7 @@ describe('check-test-output', () => {
     expect(analyzeOutput(output)).toEqual({
       bytes: Buffer.byteLength(output, 'utf8'),
       lines: 5,
+      countedLines: 5,
       patternCounts: {
         ignoreFileNotFound: 1,
         startupLogs: 1,
@@ -64,7 +65,7 @@ describe('check-test-output', () => {
         maxPatterns: [{ name: 'rawTestWrites', limit: 0 }],
       }),
     ).toEqual([
-      'line count 2 exceeds max-lines 1',
+      'counted line count 2 exceeds max-lines 1',
       'pattern "rawTestWrites" matched 2 times and exceeds limit 0',
     ]);
   });

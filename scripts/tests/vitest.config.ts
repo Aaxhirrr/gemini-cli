@@ -5,6 +5,7 @@
  */
 
 import { defineConfig } from 'vitest/config';
+import { OneLineVitestReporter } from '../test-output/oneLineVitestReporter.js';
 
 export default defineConfig({
   test: {
@@ -12,7 +13,9 @@ export default defineConfig({
     environment: 'node',
     include: ['scripts/tests/**/*.test.{js,ts}'],
     setupFiles: ['scripts/tests/test-setup.ts'],
+    reporters: [new OneLineVitestReporter()],
     silent: true,
+    slowTestThreshold: 100000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

@@ -138,9 +138,13 @@ export async function resolveWorkspacePolicyState(options: {
       workspacePoliciesDir = potentialWorkspacePoliciesDir;
 
       if (!interactive) {
-        writeToStderr(
-          'WARNING: Workspace policies changed or are new. Automatically accepting and loading them.\n',
-        );
+        const message =
+          'Workspace policies changed or are new. Automatically accepting and loading them.';
+        if (process.env['VITEST'] === 'true') {
+          debugLogger.warn(message);
+        } else {
+          writeToStderr(`WARNING: ${message}\n`);
+        }
       } else {
         debugLogger.warn(
           'Workspace policies changed or are new. Automatically accepting and loading them.',
